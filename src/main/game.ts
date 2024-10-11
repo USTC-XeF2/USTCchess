@@ -1,0 +1,34 @@
+import { shell, BrowserWindow } from 'electron'
+import { join } from 'path'
+import { is } from '@electron-toolkit/utils'
+
+export function createGameWindow(mainWindow: BrowserWindow): BrowserWindow {
+  const gameWindow = new BrowserWindow({
+    parent: mainWindow,
+    width: 360,
+    height: 600,
+    resizable: false,
+    show: false,
+    webPreferences: {
+      preload: join(__dirname, '../preload/index.js')
+    }
+  })
+
+  gameWindow.on('ready-to-show', () => {
+    gameWindow.show()
+  })
+
+  gameWindow.webContents.setWindowOpenHandler((details) => {
+    shell.openExternal(details.url)
+    return { action: 'deny' }
+  })
+
+  // HMR for renderer base on electron-vite cli.
+  // Load the remote URL for development or the local html file for production.
+  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+    gameWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/game.html`)
+  } else {
+    gameWindow.loadFile(join(__dirname, '../renderer/game.html'))
+  }
+  return gameWindow
+}

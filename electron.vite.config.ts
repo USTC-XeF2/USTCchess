@@ -15,6 +15,14 @@ export default defineConfig({
         '@renderer': resolve('src/renderer/src')
       }
     },
+    build: {
+      rollupOptions: {
+        input: {
+          main: resolve(__dirname, 'src/renderer/main.html'),
+          game: resolve(__dirname, 'src/renderer/game.html')
+        }
+      }
+    },
     plugins: [react()]
   }
 })

@@ -1,34 +1,19 @@
-# USTCchess
+# USTC Chess
 
-USTC chess game app
+[简体中文](README.zh_CN.md)
 
-## Recommended IDE Setup
+Welcome to the highly flexible and scalable game "USTC Chess"!
 
-- [VSCode](https://code.visualstudio.com/) + [ESLint](https://marketplace.visualstudio.com/items?itemName=dbaeumer.vscode-eslint) + [Prettier](https://marketplace.visualstudio.com/items?itemName=esbenp.prettier-vscode)
+In this game, you can compete with friends locally or communicate technology remotely through LAN online mode.
 
-## Project Setup
+Do you feel that the original gameplay is dull and uninteresting? You can create your own custom board games and publish them to the community, or try other people's self created board games.
 
-### Install
+Start playing in the "Quick Start" section below!
 
-```bash
-$ npm install
-```
+## Quick Start
 
-### Development
+1. Get the latest version in [Release](https://github.com/USTC-XeF2/USTCchess/releases/latest) and follow the instructions to install it
 
-```bash
-$ npm run dev
-```
+2. Read [Quick Start Documentation](https://github.com/USTC-XeF2/USTCchess/wiki/quick-start), understanding game mechanics and downloading preset maps and extensions
 
-### Build
-
-```bash
-# For windows
-$ npm run build:win
-
-# For macOS
-$ npm run build:mac
-
-# For Linux
-$ npm run build:linux
-```
+3. Choose single player mode or invite your friends to create a LAN room and play to your heart's content!

@@ -1,46 +1,22 @@
-import { app, shell, BrowserWindow, ipcMain } from 'electron'
-import { join } from 'path'
-import { electronApp, optimizer, is } from '@electron-toolkit/utils'
-import icon from '../../resources/icon.png?asset'
+import { app, BrowserWindow, ipcMain } from 'electron/main'
+import { electronApp, optimizer } from '@electron-toolkit/utils'
 
-function createWindow(): void {
-  // Create the browser window.
-  const mainWindow = new BrowserWindow({
-    width: 900,
-    height: 670,
-    show: false,
-    autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences: {
-      preload: join(__dirname, '../preload/index.js'),
-      sandbox: false
-    }
-  })
+import {
+  createMainWindow,
+  analyzeMap,
+  getExtensions,
+  getSettings,
+  getSetting,
+  changeSettings
+} from './main'
 
-  mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
-  })
-
-  mainWindow.webContents.setWindowOpenHandler((details) => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
-
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
-  } else {
-    mainWindow.loadFile(join(__dirname, '../renderer/index.html'))
-  }
-}
+import { createGameWindow } from './game'
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-  // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.xef2.ustcchess')
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -49,15 +25,46 @@ app.whenReady().then(() => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  // IPC test
-  ipcMain.on('ping', () => console.log('pong'))
+  let mainWindow = createMainWindow()
+  let gameWindow: BrowserWindow | null = null
 
-  createWindow()
+  function startGame(_e, gamemode: string, mapData: object): Promise<string> {
+    return new Promise((resolve) => {
+      if (gamemode == 'single') {
+        if (gameWindow) return resolve('The game is running.')
+        getSetting(_e, 'auto-minimize-mainwindow').then((flag) => {
+          if (flag) mainWindow.minimize()
+        })
+        gameWindow = createGameWindow(mainWindow)
+        ipcMain.handle('get-map-data', () => {
+          return new Promise((resolve) => {
+            resolve(mapData)
+          })
+        })
+        gameWindow.on('closed', () => {
+          mainWindow.webContents.send('stop-game')
+          if (mainWindow.isMinimized()) mainWindow.restore()
+          ipcMain.removeHandler('get-map-data')
+          gameWindow = null
+        })
+        resolve('success')
+      } else {
+        resolve(`The gamemode '${gamemode}' has not been implemented yet.`)
+      }
+    })
+  }
+
+  ipcMain.handle('start-game', startGame)
+  ipcMain.handle('analyze-map', analyzeMap)
+  ipcMain.handle('get-extensions', getExtensions)
+  ipcMain.handle('get-settings', getSettings)
+  ipcMain.handle('get-setting', getSetting)
+  ipcMain.on('change-settings', changeSettings)
 
   app.on('activate', function () {
-    // On macOS it's common to re-create a window in the app when the
-    // dock icon is clicked and there are no other windows open.
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
+    if (BrowserWindow.getAllWindows().length === 0) {
+      mainWindow = createMainWindow()
+    }
   })
 })
 
@@ -69,6 +76,3 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
-
-// In this file you can include the rest of your app"s specific main process
-// code. You can also put them in separate files and require them here.
