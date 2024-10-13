@@ -1,40 +1,31 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { TransferProps } from 'antd'
 import { Alert, Button, Transfer } from 'antd'
 
-interface RecordType {
-  key: string
-  title: string
-  disabled: boolean
-}
-
-let initialEnableChangeFlag: boolean
-let initialExtensions: RecordType[]
-let initialTargetKeys: Array<string>
-
-window.addEventListener('DOMContentLoaded', async () => {
-  initialEnableChangeFlag = await window.electronAPI.getSetting('auto-enable-extensions')
-  initialExtensions = await window.electronAPI.getExtensions()
-  initialTargetKeys = []
-})
+import { ExtensionInfo } from 'src/types/extension'
 
 function ExtensionPage(): JSX.Element {
-  const [initialized, setInitialized] = useState<boolean>(false)
-  const [enableChangeFlag, setEnableChangeFlag] = useState<boolean>(initialEnableChangeFlag)
-  const [extensions, setExtensions] = useState<RecordType[]>(initialExtensions)
-  const [targetKeys, setTargetKeys] = useState<TransferProps['targetKeys']>(initialTargetKeys)
+  const [enableChangeFlag, setEnableChangeFlag] = useState<boolean>(false)
+  const [extensions, setExtensions] = useState<ExtensionInfo[]>([])
+  const [enabledExtensions, setEnabledExtensions] = useState<TransferProps['targetKeys']>([])
 
-  if (!initialized) {
+  useEffect(() => {
+    const fetchData = async (): Promise<void> => {
+      setEnableChangeFlag(await window.electronAPI.getSetting('auto-enable-extensions'))
+      setExtensions(await window.electronAPI.getExtensions())
+      setEnabledExtensions(await window.electronAPI.getEnabledExtensions())
+    }
+    fetchData()
+
     window.addEventListener('updatesettings', async () => {
       setEnableChangeFlag(await window.electronAPI.getSetting('auto-enable-extensions'))
       setExtensions(await window.electronAPI.getExtensions())
-      console.log(1)
     })
-    setInitialized(true)
-  }
+  }, [])
 
-  const onChange: TransferProps['onChange'] = (nextTargetKeys) => {
-    setTargetKeys(nextTargetKeys)
+  const onChange: TransferProps['onChange'] = async (nextTargetKeys) => {
+    await window.electronAPI.setEnabledExtensions(nextTargetKeys.map((v) => v.toString()))
+    setEnabledExtensions(nextTargetKeys)
   }
 
   const renderFooter: TransferProps['footer'] = (_, info) => {
@@ -44,8 +35,12 @@ function ExtensionPage(): JSX.Element {
           <Button size="small" type="primary" ghost style={{ margin: 8 }}>
             导入扩展
           </Button>
-          <Button size="small" danger style={{ margin: 8 }}>
-            移除所选扩展
+          <Button
+            size="small"
+            onClick={window.electronAPI.openExtensionFolder}
+            style={{ margin: 8 }}
+          >
+            打开扩展文件夹
           </Button>
         </>
       )
@@ -65,7 +60,7 @@ function ExtensionPage(): JSX.Element {
       dataSource={extensions.map((value) => ({ ...value, disabled: enableChangeFlag }))}
       titles={['未启用', '已启用']}
       operations={['启用扩展']}
-      targetKeys={targetKeys}
+      targetKeys={enabledExtensions}
       onChange={onChange}
       render={(item) => item.title}
       footer={renderFooter}

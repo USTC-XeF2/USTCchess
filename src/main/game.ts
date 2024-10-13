@@ -1,4 +1,4 @@
-import { shell, BrowserWindow } from 'electron'
+import { BrowserWindow, Menu, shell } from 'electron'
 import { join } from 'path'
 import { is } from '@electron-toolkit/utils'
 
@@ -13,6 +13,33 @@ export function createGameWindow(mainWindow: BrowserWindow): BrowserWindow {
       preload: join(__dirname, '../preload/index.js')
     }
   })
+
+  const menu = Menu.buildFromTemplate([
+    {
+      label: '游戏',
+      submenu: [
+        { label: '查看地图信息' },
+        { type: 'separator' },
+        {
+          label: '退出',
+          click: (): void => {
+            gameWindow.close()
+          }
+        }
+      ]
+    },
+    {
+      label: '操作',
+      submenu: [
+        { label: '悔棋' },
+        { label: '撤销悔棋' },
+        { type: 'separator' },
+        { label: '显示行走提示' }
+      ]
+    }
+  ])
+
+  gameWindow.setMenu(menu)
 
   gameWindow.on('ready-to-show', () => {
     gameWindow.show()

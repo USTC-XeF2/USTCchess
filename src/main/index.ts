@@ -1,10 +1,16 @@
-import { app, BrowserWindow, ipcMain } from 'electron/main'
+import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, shell } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 
+import { Map } from '../types/map'
+import { generateChessboard } from '../utils/map'
+
 import {
+  extensionPath,
   createMainWindow,
   analyzeMap,
   getExtensions,
+  getEnabledExtensions,
+  setEnabledExtensions,
   getSettings,
   getSetting,
   changeSettings
@@ -28,7 +34,7 @@ app.whenReady().then(() => {
   let mainWindow = createMainWindow()
   let gameWindow: BrowserWindow | null = null
 
-  function startGame(_e, gamemode: string, mapData: object): Promise<string> {
+  function startGame(_e: IpcMainInvokeEvent, gamemode: string, mapData: Map): Promise<string> {
     return new Promise((resolve) => {
       if (gamemode == 'single') {
         if (gameWindow) return resolve('The game is running.')
@@ -57,9 +63,27 @@ app.whenReady().then(() => {
   ipcMain.handle('start-game', startGame)
   ipcMain.handle('analyze-map', analyzeMap)
   ipcMain.handle('get-extensions', getExtensions)
+  ipcMain.handle('get-enabled-extensions', getEnabledExtensions)
+  ipcMain.handle('set-enabled-extensions', setEnabledExtensions)
+  ipcMain.on('open-extension-folder', () => {
+    shell.openPath(extensionPath)
+  })
   ipcMain.handle('get-settings', getSettings)
   ipcMain.handle('get-setting', getSetting)
-  ipcMain.on('change-settings', changeSettings)
+  ipcMain.handle('change-settings', changeSettings)
+  ipcMain.on('get-about', (e) => {
+    e.returnValue = {
+      'app-version': app.getVersion(),
+      'electron-version': process.versions.electron,
+      'chrome-version': process.versions.chrome,
+      'node-version': process.versions.node,
+      platform: process.platform,
+      'sys-version': process.getSystemVersion()
+    }
+  })
+  ipcMain.on('generate-chessboard', (e, mapData: Map) => {
+    e.returnValue = generateChessboard(mapData)
+  })
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) {

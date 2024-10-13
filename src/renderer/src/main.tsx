@@ -1,6 +1,6 @@
 import './assets/main.css'
 
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 
 import { HomeOutlined, AppstoreOutlined, SettingOutlined } from '@ant-design/icons'
@@ -40,30 +40,29 @@ const localeOptions = {
 }
 
 function App(): JSX.Element {
-  const [initialized, setInitialized] = useState<boolean>(false)
   const [locale, setLocale] = useState<string>('')
   const [primaryColor, setPrimaryColor] = useState<string>('')
-  const reload = async (): Promise<void> => {
-    setLocale(await window.electronAPI.getSetting('language'))
-    setPrimaryColor(await window.electronAPI.getSetting('primary-color'))
-  }
-  if (!initialized) {
+
+  useEffect(() => {
+    const reload = async (): Promise<void> => {
+      setLocale(await window.electronAPI.getSetting('language'))
+      setPrimaryColor(await window.electronAPI.getSetting('primary-color'))
+    }
+
     reload()
     window.addEventListener('updatesettings', reload)
-    setInitialized(true)
-  }
+  }, [])
+
+  useEffect(() => {
+    document.documentElement.style.setProperty('--primary-color', primaryColor)
+  }, [primaryColor])
 
   return (
     <ConfigProvider
       locale={localeOptions[locale]}
       theme={{ token: { colorPrimary: primaryColor } }}
     >
-      <Tabs
-        defaultActiveKey="1"
-        centered
-        items={tabItems}
-        style={{ '--primary-color': primaryColor, height: '100vh' }}
-      />
+      <Tabs defaultActiveKey="1" centered items={tabItems} style={{ height: '100vh' }} />
     </ConfigProvider>
   )
 }

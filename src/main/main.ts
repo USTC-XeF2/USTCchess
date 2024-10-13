@@ -1,11 +1,24 @@
-import { shell, BrowserWindow } from 'electron'
+import { app, BrowserWindow, IpcMainInvokeEvent, shell } from 'electron'
 import { basename, extname, join } from 'node:path'
 import { access, mkdir, readdir, readFile, writeFile } from 'node:fs'
 import { is } from '@electron-toolkit/utils'
 
-const settingPath = './settings.json'
-const extensionPath = './extensions'
-//const extensionConfigPath = join(extensionPath, 'config.json')
+import type { Map } from '../types/map'
+import { ExtensionInfo } from '../types/extension'
+import type { Settings } from '../types/settings'
+import { isMap } from '../utils/map'
+import { defaultSettings } from '../utils/settings'
+
+let basePath: string
+if (is.dev) {
+  basePath = app.getAppPath()
+} else {
+  basePath = join(app.getPath('exe'), '../')
+}
+
+export const settingPath = join(basePath, './settings.json')
+export const extensionPath = join(basePath, './extensions')
+export const extensionConfigPath = join(extensionPath, 'config.json')
 
 export function createMainWindow(): BrowserWindow {
   const mainWindow = new BrowserWindow({
@@ -39,21 +52,22 @@ export function createMainWindow(): BrowserWindow {
   return mainWindow
 }
 
-export function analyzeMap(_e, text: string): Promise<object> {
+export function analyzeMap(_e: IpcMainInvokeEvent, text: string): Promise<Map> {
   return new Promise((resolve, reject) => {
     try {
       const data = JSON.parse(text)
-      if (!data['name']) {
-        return reject('The file does not contain the attribute "name".')
+      if (isMap(data)) {
+        resolve(data)
+      } else {
+        reject('The map file information is incomplete.')
       }
-      resolve(data)
     } catch {
-      reject('Unknown error.')
+      reject('The format of the file is incorrect.')
     }
   })
 }
 
-export function getExtensions(): Promise<object[]> {
+export function getExtensions(): Promise<ExtensionInfo[]> {
   return new Promise((resolve, reject) => {
     access(extensionPath, (err) => {
       if (err) {
@@ -64,12 +78,12 @@ export function getExtensions(): Promise<object[]> {
       } else {
         readdir(extensionPath, (err, files) => {
           if (err) return reject('Failed to read folder.')
-          const extensions: object[] = []
+          const extensions: ExtensionInfo[] = []
           files.forEach((path, index) => {
             if (extname(path) == '.js') {
               // The metadata of the extensions should be read here
               extensions.push({
-                key: index,
+                key: index.toString(),
                 title: basename(path, '.js')
               })
             }
@@ -81,14 +95,45 @@ export function getExtensions(): Promise<object[]> {
   })
 }
 
-const defaultSettings = {
-  'auto-minimize-mainwindow': true,
-  'auto-enable-extensions': true,
-  language: 'zhCN',
-  'primary-color': '#1677ff'
+function getExtensionConfig(): Promise<object> {
+  return new Promise((resolve) => {
+    readFile(extensionConfigPath, (err, data) => {
+      if (err) {
+        return resolve({})
+      }
+      try {
+        resolve(JSON.parse(data.toString()))
+      } catch {
+        return resolve({})
+      }
+    })
+  })
 }
 
-export function getSettings(): Promise<object> {
+export function getEnabledExtensions(): Promise<ExtensionInfo['key'][]> {
+  return new Promise((resolve) => {
+    getExtensionConfig().then((config) => resolve(config['enabled-extensions']))
+  })
+}
+
+export function setEnabledExtensions(
+  _e: IpcMainInvokeEvent,
+  enabledExtensions: ExtensionInfo['key'][]
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    getExtensionConfig().then((config) => {
+      config['enabled-extensions'] = enabledExtensions
+      try {
+        writeFile(extensionConfigPath, JSON.stringify(config), () => {})
+        resolve()
+      } catch {
+        reject('Unknown error.')
+      }
+    })
+  })
+}
+
+export function getSettings(): Promise<Settings> {
   return new Promise((resolve) => {
     readFile(settingPath, (err, data) => {
       if (err) {
@@ -103,23 +148,34 @@ export function getSettings(): Promise<object> {
   })
 }
 
-export function getSetting(_e, value: string): Promise<unknown> {
+export function getSetting<T extends keyof Settings>(
+  _e: IpcMainInvokeEvent,
+  key: T
+): Promise<Settings[T]> {
   return new Promise((resolve, reject) => {
-    getSettings().then((settings: object) => {
-      if (value in settings) {
-        resolve(settings[value])
-      } else if (value in defaultSettings) {
-        resolve(defaultSettings[value])
+    getSettings().then((settings) => {
+      if (key in settings) {
+        resolve(settings[key])
       } else {
-        reject('The setting "' + value + '" does not exist.')
+        reject(`The setting "${key}" does not exist.`)
       }
     })
   })
 }
 
-export function changeSettings(_e, changedValues: object): void {
-  getSettings().then((settings: object) => {
-    const data = JSON.stringify({ ...settings, ...changedValues })
-    writeFile(settingPath, data, () => {})
-  })
+export function changeSettings(
+  _e: IpcMainInvokeEvent,
+  changedSettings: Partial<Settings>
+): Promise<Settings> {
+  return new Promise((resolve, reject) =>
+    getSettings().then((settings) => {
+      const newSettings = { ...settings, ...changedSettings }
+      try {
+        writeFile(settingPath, JSON.stringify(newSettings), () => {})
+        resolve(newSettings)
+      } catch {
+        reject('Unknown error.')
+      }
+    })
+  )
 }

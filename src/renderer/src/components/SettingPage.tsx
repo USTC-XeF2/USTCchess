@@ -1,9 +1,11 @@
+import { useState, useEffect } from 'react'
 import { blue, green, presetPalettes, purple, orange } from '@ant-design/colors'
-import type { ColorPickerProps } from 'antd'
-import { Button, Card, ColorPicker, Form, Radio, Space, Switch } from 'antd'
+import type { ColorPickerProps, DescriptionsProps } from 'antd'
+import { Button, Card, ColorPicker, Descriptions, Form, Radio, Space, Switch, Spin } from 'antd'
 
-const versions = window.electronAPI.versions
-const event = new Event('updatesettings')
+import { Settings } from 'src/types/settings'
+
+const updateEvent = new Event('updatesettings')
 
 const languageOptions = [
   { label: 'English', value: 'enUS' },
@@ -15,19 +17,49 @@ type Presets = Required<ColorPickerProps>['presets'][number]
 const genPresets = (presets = presetPalettes): Array<Presets> =>
   Object.entries(presets).map<Presets>(([label, colors]) => ({ label, colors, defaultOpen: false }))
 
-let settings: object
-
-window.addEventListener('DOMContentLoaded', async () => {
-  window.dispatchEvent(event)
-  settings = await window.electronAPI.getSettings()
-})
+const about = window.electronAPI.getAbout()
+const aboutInformation: DescriptionsProps['items'] = [
+  {
+    label: '版本',
+    children: about['app-version']
+  },
+  {
+    label: 'Electron',
+    children: about['electron-version']
+  },
+  {
+    label: 'Chromium',
+    children: about['chrome-version']
+  },
+  {
+    label: 'Node.js',
+    children: about['node-version']
+  },
+  {
+    label: 'OS',
+    children: `${about['platform']} ${about['sys-version']}`
+  }
+]
 
 function SettingPage(): JSX.Element {
-  const [form] = Form.useForm()
+  const [settings, setSettings] = useState<Settings>()
+  const [form] = Form.useForm<Settings>()
 
-  const onChangeSettings = async (changedValues: object): Promise<void> => {
-    await window.electronAPI.changeSettings(changedValues)
-    window.dispatchEvent(event)
+  useEffect(() => {
+    const fetchSettings = async (): Promise<void> => {
+      setSettings(await window.electronAPI.getSettings())
+      window.dispatchEvent(updateEvent)
+    }
+    fetchSettings()
+  }, [])
+
+  const onChangeSettings = async (changedSettings: Partial<Settings>): Promise<void> => {
+    setSettings(await window.electronAPI.changeSettings(changedSettings))
+    window.dispatchEvent(updateEvent)
+  }
+
+  if (!settings) {
+    return <Spin tip="加载中..." fullscreen delay={10} />
   }
 
   return (
@@ -58,7 +90,7 @@ function SettingPage(): JSX.Element {
           <Space>
             <ColorPicker
               presets={genPresets({ blue, green, purple, orange })}
-              defaultValue={settings['primary-color']}
+              value={settings['primary-color']}
               disabledAlpha
               onChangeComplete={(color) =>
                 onChangeSettings({ 'primary-color': color.toHexString() })
@@ -68,12 +100,8 @@ function SettingPage(): JSX.Element {
           </Space>
         </Form.Item>
       </Card>
-      <Card title="程序版本信息">
-        <ul className="versions">
-          <li className="electron-version">Electron v{versions.electron}</li>
-          <li className="chrome-version">Chromium v{versions.chrome}</li>
-          <li className="node-version">Node v{versions.node}</li>
-        </ul>
+      <Card title="关于">
+        <Descriptions items={aboutInformation} />
       </Card>
     </Form>
   )

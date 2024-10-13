@@ -1,16 +1,22 @@
-import { contextBridge, IpcRenderer, ipcRenderer } from 'electron/renderer'
+import { contextBridge, ipcRenderer } from 'electron'
 
-const api = {
-  startGame: (gamemode: string, mapData: object): Promise<string> => ipcRenderer.invoke('start-game', gamemode, mapData),
-  onStopGame: (callback: () => void): IpcRenderer => ipcRenderer.on('stop-game', () => callback()),
-  analyzeMap: (text: string): Promise<object> => ipcRenderer.invoke('analyze-map', text),
-  getMapData: (): Promise<object> => ipcRenderer.invoke('get-map-data'),
-  getExtensions: (): Promise<object[]> => ipcRenderer.invoke('get-extensions'),
-  getSettings: (): Promise<object> => ipcRenderer.invoke('get-settings'),
-  getSetting: (value: string): Promise<unknown> => ipcRenderer.invoke('get-setting', value),
-  changeSettings: (changedValues: object): void =>
-    ipcRenderer.send('change-settings', changedValues),
-  versions: process.versions
+import type { API } from './api'
+
+const api: API = {
+  startGame: (gamemode, mapData) => ipcRenderer.invoke('start-game', gamemode, mapData),
+  onStopGame: (callback) => ipcRenderer.on('stop-game', () => callback()),
+  analyzeMap: (text) => ipcRenderer.invoke('analyze-map', text),
+  getMapData: () => ipcRenderer.invoke('get-map-data'),
+  getExtensions: () => ipcRenderer.invoke('get-extensions'),
+  getEnabledExtensions: () => ipcRenderer.invoke('get-enabled-extensions'),
+  setEnabledExtensions: (enabledExtensions) =>
+    ipcRenderer.invoke('set-enabled-extensions', enabledExtensions),
+  openExtensionFolder: () => ipcRenderer.send('open-extension-folder'),
+  getSettings: () => ipcRenderer.invoke('get-settings'),
+  getSetting: (value) => ipcRenderer.invoke('get-setting', value),
+  changeSettings: (changedSettings) => ipcRenderer.invoke('change-settings', changedSettings),
+  getAbout: () => ipcRenderer.sendSync('get-about'),
+  generateChessboard: (mapData) => ipcRenderer.sendSync('generate-chessboard', mapData)
 }
 
 if (process.contextIsolated) {
