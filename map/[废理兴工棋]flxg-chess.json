@@ -1,0 +1,37 @@
+{
+	"id": "flxg-chess",
+	"version": [1, 0, 0],
+	"name": "废理兴工棋",
+	"author": "XeF2",
+	"description": "来和坑坑一起废理兴工！",
+	"cards": [
+		{
+			"id": 1,
+			"name": "Red-1",
+			"camp": 1
+		},
+		{
+			"id": 2,
+			"name": "Blue-1",
+			"camp": 2
+		},
+		{
+			"id": 99,
+			"name": "Neutral",
+			"camp": 0
+		}
+	],
+	"chessboard": {
+		"width": 7,
+		"height": 9,
+		"intersection": true,
+		"init": {
+			"[0, 3]": 1,
+			"[4, 3]": 99,
+			"[8, 3]": 2
+		}
+	},
+	"extensions": {
+		"flxg-chess": [[1, 0, 0], "auto"]
+	}
+}

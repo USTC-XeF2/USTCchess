@@ -19,6 +19,15 @@ import { Map } from 'src/types/map'
 
 import ChessboardComponent from './Chessboard'
 
+import { ChessboardSetting } from 'src/types/chessboard'
+
+const temp: ChessboardSetting = {
+  width: 7,
+  height: 9,
+  intersection: true,
+  init: {}
+}
+
 const gamemodes: SelectProps['options'] = [
   { value: 'single', label: '单人模式' },
   { value: 'quick-online', label: '快速联机', disabled: true },
@@ -49,7 +58,7 @@ function MapPreload({ mapData }: { mapData: Map }): JSX.Element {
     {
       key: '1',
       label: '棋盘预览',
-      children: <ChessboardComponent chessboard={chessboard} />
+      children: <ChessboardComponent chessboard={chessboard} setting={temp} />
     },
     {
       key: '2',

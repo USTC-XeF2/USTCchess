@@ -11,6 +11,8 @@ import { Map } from 'src/types/map'
 
 import ChessboardComponent from './components/Chessboard'
 
+import { ChessboardSetting } from 'src/types/chessboard'
+
 const localeOptions = {
   enUS: enUS,
   zhCN: zhCN
@@ -35,13 +37,19 @@ function App(): JSX.Element {
     return <></>
   }
   const chessboard = window.electronAPI.generateChessboard(mapData)
+  const temp: ChessboardSetting = {
+    width: 7,
+    height: 9,
+    intersection: true,
+    init: {}
+  }
 
   return (
     <ConfigProvider
       locale={localeOptions[locale]}
       theme={{ token: { colorPrimary: primaryColor } }}
     >
-      <ChessboardComponent chessboard={chessboard} />
+      <ChessboardComponent chessboard={chessboard} setting={temp} />
     </ConfigProvider>
   )
 }
