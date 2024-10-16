@@ -19,15 +19,6 @@ import { Map } from 'src/types/map'
 
 import ChessboardComponent from './Chessboard'
 
-import { ChessboardSetting } from 'src/types/chessboard'
-
-const temp: ChessboardSetting = {
-  width: 7,
-  height: 9,
-  intersection: true,
-  init: {}
-}
-
 const gamemodes: SelectProps['options'] = [
   { value: 'single', label: '单人模式' },
   { value: 'quick-online', label: '快速联机', disabled: true },
@@ -58,7 +49,13 @@ function MapPreload({ mapData }: { mapData: Map }): JSX.Element {
     {
       key: '1',
       label: '棋盘预览',
-      children: <ChessboardComponent chessboard={chessboard} setting={temp} />
+      children: (
+        <ChessboardComponent
+          chessboard={chessboard}
+          intersection={mapData.chessboard.intersection}
+          getCard={(id) => mapData.cards.find((v) => v.id === id)!}
+        />
+      )
     },
     {
       key: '2',
@@ -99,11 +96,11 @@ function StartPage(): JSX.Element {
       message.info('未选择地图文件')
       return
     }
-    const status = await window.electronAPI.startGame(currentGamemode, mapData)
-    if (status == 'success') {
-      setGameRunning(true)
+    const error = await window.electronAPI.startGame(currentGamemode, mapData)
+    if (error) {
+      message.error(error)
     } else {
-      message.error('Error: ' + status)
+      setGameRunning(true)
     }
   }
 
@@ -126,7 +123,7 @@ function StartPage(): JSX.Element {
 
   return (
     <Flex gap="middle" style={{ height: '100%' }}>
-      <Card style={{ width: 'min(30%,250px)' }}>
+      <Card style={{ width: 'min(30%,300px)' }}>
         <Space direction="vertical" style={{ display: 'flex' }}>
           <Button type="primary" disabled={isGameRunning} onClick={onStartGame} block>
             开始游戏

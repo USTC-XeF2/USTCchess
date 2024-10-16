@@ -1,8 +1,16 @@
-board{
-    display:flex;
-    flex-direction: column;
+.ant-collapse-content-box {
+    margin: 0 auto;
 }
-cell{
-  text-align: center;
-  vertical-align: middle;
+
+#board > div {
+    display: flex;
+    justify-content: center;
+}
+
+#board > div > div {
+    display: inline-flex;
+    justify-content: center;
+    align-items: center;
+    border: 1px solid black;
+    text-align: center;
 }

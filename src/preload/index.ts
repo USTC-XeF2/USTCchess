@@ -6,7 +6,6 @@ const api: API = {
   startGame: (gamemode, mapData) => ipcRenderer.invoke('start-game', gamemode, mapData),
   onStopGame: (callback) => ipcRenderer.on('stop-game', () => callback()),
   analyzeMap: (text) => ipcRenderer.invoke('analyze-map', text),
-  getMapData: () => ipcRenderer.invoke('get-map-data'),
   getExtensions: () => ipcRenderer.invoke('get-extensions'),
   getEnabledExtensions: () => ipcRenderer.invoke('get-enabled-extensions'),
   setEnabledExtensions: (enabledExtensions) =>
@@ -16,7 +15,8 @@ const api: API = {
   getSetting: (value) => ipcRenderer.invoke('get-setting', value),
   changeSettings: (changedSettings) => ipcRenderer.invoke('change-settings', changedSettings),
   getAbout: () => ipcRenderer.sendSync('get-about'),
-  generateChessboard: (mapData) => ipcRenderer.sendSync('generate-chessboard', mapData)
+  generateChessboard: (mapData) => ipcRenderer.sendSync('generate-chessboard', mapData),
+  contact: (type, data = {}) => ipcRenderer.invoke('contact', type, data)
 }
 
 if (process.contextIsolated) {

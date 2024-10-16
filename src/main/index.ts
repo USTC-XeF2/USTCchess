@@ -16,7 +16,8 @@ import {
   changeSettings
 } from './main'
 
-import { createGameWindow } from './game'
+import { GameServer, getUnusedPort } from './game-server'
+import { checkOnClose, createClients } from './game'
 
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
@@ -32,28 +33,43 @@ app.whenReady().then(() => {
   })
 
   let mainWindow = createMainWindow()
-  let gameWindow: BrowserWindow | null = null
+  let isGameRunning: boolean = false
+
+  const restoreMainWindow = (): void => {
+    if (isGameRunning) {
+      mainWindow.webContents.send('stop-game')
+      if (mainWindow.isMinimized()) mainWindow.restore()
+      isGameRunning = false
+    }
+  }
+
+  mainWindow.on('close', (e) => {
+    if (!isGameRunning) return
+    e.preventDefault()
+    checkOnClose().then((res) => {
+      if (res) {
+        BrowserWindow.getAllWindows().forEach((w) => w.destroy())
+      }
+    })
+  })
 
   function startGame(_e: IpcMainInvokeEvent, gamemode: string, mapData: Map): Promise<string> {
     return new Promise((resolve) => {
+      if (isGameRunning) return resolve('游戏正在运行中')
       if (gamemode == 'single') {
-        if (gameWindow) return resolve('The game is running.')
-        getSetting(_e, 'auto-minimize-mainwindow').then((flag) => {
-          if (flag) mainWindow.minimize()
-        })
-        gameWindow = createGameWindow(mainWindow)
-        ipcMain.handle('get-map-data', () => {
-          return new Promise((resolve) => {
-            resolve(mapData)
+        getUnusedPort()
+          .then((port) => {
+            new GameServer(mapData, port)
+            createClients(`localhost:${port}`, 2, restoreMainWindow)
+            isGameRunning = true
+            getSetting(_e, 'auto-minimize-mainwindow').then((flag) => {
+              if (flag) mainWindow.minimize()
+            })
+            resolve('')
           })
-        })
-        gameWindow.on('closed', () => {
-          mainWindow.webContents.send('stop-game')
-          if (mainWindow.isMinimized()) mainWindow.restore()
-          ipcMain.removeHandler('get-map-data')
-          gameWindow = null
-        })
-        resolve('success')
+          .catch((err) => {
+            resolve(err)
+          })
       } else {
         resolve(`The gamemode '${gamemode}' has not been implemented yet.`)
       }
@@ -65,12 +81,12 @@ app.whenReady().then(() => {
   ipcMain.handle('get-extensions', getExtensions)
   ipcMain.handle('get-enabled-extensions', getEnabledExtensions)
   ipcMain.handle('set-enabled-extensions', setEnabledExtensions)
-  ipcMain.on('open-extension-folder', () => {
-    shell.openPath(extensionPath)
-  })
   ipcMain.handle('get-settings', getSettings)
   ipcMain.handle('get-setting', getSetting)
   ipcMain.handle('change-settings', changeSettings)
+  ipcMain.on('open-extension-folder', () => {
+    shell.openPath(extensionPath)
+  })
   ipcMain.on('get-about', (e) => {
     e.returnValue = {
       'app-version': app.getVersion(),

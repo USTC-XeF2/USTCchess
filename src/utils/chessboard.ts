@@ -4,11 +4,27 @@ import type {
   Chessboard,
   ChessboardSetting,
   Position,
-  PositionString
+  PositionString,
+  WalkRange
 } from '../types/chessboard'
 
+function isWalkRange(obj): obj is WalkRange {
+  return (
+    typeof obj.direction === 'number' &&
+    obj.direction >= 1 &&
+    obj.direction <= 8 &&
+    (typeof obj.maxstep === 'number' || obj.maxstep === undefined)
+  )
+}
+
 export function isCard(obj): obj is Card {
-  return typeof obj.id === 'number' && typeof obj.name === 'string' && typeof obj.camp === 'number'
+  return (
+    typeof obj.id === 'number' &&
+    typeof obj.name === 'string' &&
+    typeof obj.camp === 'number' &&
+    Array.isArray(obj.walkRanges) &&
+    obj.walkRanges.every((v) => isWalkRange(v))
+  )
 }
 
 export function isPositionString(str: string): str is PositionString {

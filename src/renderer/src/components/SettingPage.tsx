@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { blue, green, presetPalettes, purple, orange } from '@ant-design/colors'
+import { blue, cyan, gold, gray, green, orange, purple, red } from '@ant-design/colors'
 import type { ColorPickerProps, DescriptionsProps } from 'antd'
 import { Button, Card, ColorPicker, Descriptions, Form, Radio, Space, Switch, Spin } from 'antd'
 
@@ -12,10 +12,13 @@ const languageOptions = [
   { label: '简体中文', value: 'zhCN' }
 ]
 
-type Presets = Required<ColorPickerProps>['presets'][number]
-
-const genPresets = (presets = presetPalettes): Array<Presets> =>
-  Object.entries(presets).map<Presets>(([label, colors]) => ({ label, colors, defaultOpen: false }))
+const presetColors: ColorPickerProps['presets'] = [
+  {
+    label: '经典主题',
+    colors: [red, orange, gold, green, cyan, blue, purple, gray].map((color) => color.primary!),
+    defaultOpen: true
+  }
+]
 
 const about = window.electronAPI.getAbout()
 const aboutInformation: DescriptionsProps['items'] = [
@@ -83,13 +86,13 @@ function SettingPage(): JSX.Element {
         </Form.Item>
       </Card>
       <Card title="个性化">
-        <Form.Item name="language" label="语言">
+        <Form.Item name="language" label="语言" extra="目前只支持极少部分组件">
           <Radio.Group options={languageOptions} optionType="button" />
         </Form.Item>
         <Form.Item label="主题色">
           <Space>
             <ColorPicker
-              presets={genPresets({ blue, green, purple, orange })}
+              presets={presetColors}
               value={settings['primary-color']}
               disabledAlpha
               onChangeComplete={(color) =>

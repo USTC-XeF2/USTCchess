@@ -11,8 +11,6 @@ import { Map } from 'src/types/map'
 
 import ChessboardComponent from './components/Chessboard'
 
-import { ChessboardSetting } from 'src/types/chessboard'
-
 const localeOptions = {
   enUS: enUS,
   zhCN: zhCN
@@ -26,7 +24,12 @@ function App(): JSX.Element {
   const reload = async (): Promise<void> => {
     setLocale(await window.electronAPI.getSetting('language'))
     setPrimaryColor(await window.electronAPI.getSetting('primary-color'))
-    setMapData(await window.electronAPI.getMapData())
+    const res = await window.electronAPI.contact('get-map')
+    if (res.status !== 'success') {
+      console.error('Failed to get map data:', res.data)
+      return
+    }
+    setMapData(res.data as Map)
   }
   if (!initialized) {
     reload()
@@ -37,19 +40,17 @@ function App(): JSX.Element {
     return <></>
   }
   const chessboard = window.electronAPI.generateChessboard(mapData)
-  const temp: ChessboardSetting = {
-    width: 7,
-    height: 9,
-    intersection: true,
-    init: {}
-  }
 
   return (
     <ConfigProvider
       locale={localeOptions[locale]}
       theme={{ token: { colorPrimary: primaryColor } }}
     >
-      <ChessboardComponent chessboard={chessboard} setting={temp} />
+      <ChessboardComponent
+        chessboard={chessboard}
+        intersection={mapData.chessboard.intersection}
+        getCard={(id) => mapData.cards.find((v) => v.id === id)!}
+      />
     </ConfigProvider>
   )
 }
