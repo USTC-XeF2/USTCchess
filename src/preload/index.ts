@@ -3,10 +3,12 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { API } from './api'
 
 const api: API = {
+  getGameStatus: () => ipcRenderer.invoke('get-game-status'),
   startGame: (gamemode, mapData) => ipcRenderer.invoke('start-game', gamemode, mapData),
-  onStopGame: (callback) => ipcRenderer.on('stop-game', () => callback()),
+  onStopGame: (callback) => ipcRenderer.on('stop-game', callback),
+  generateChessboard: (mapData) => ipcRenderer.sendSync('generate-chessboard', mapData),
   analyzeMap: (text) => ipcRenderer.invoke('analyze-map', text),
-  getExtensions: () => ipcRenderer.invoke('get-extensions'),
+  getExtensionsInfo: () => ipcRenderer.invoke('get-extensions-info'),
   getEnabledExtensions: () => ipcRenderer.invoke('get-enabled-extensions'),
   setEnabledExtensions: (enabledExtensions) =>
     ipcRenderer.invoke('set-enabled-extensions', enabledExtensions),
@@ -15,8 +17,8 @@ const api: API = {
   getSetting: (value) => ipcRenderer.invoke('get-setting', value),
   changeSettings: (changedSettings) => ipcRenderer.invoke('change-settings', changedSettings),
   getAbout: () => ipcRenderer.sendSync('get-about'),
-  generateChessboard: (mapData) => ipcRenderer.sendSync('generate-chessboard', mapData),
-  contact: (type, data = {}) => ipcRenderer.invoke('contact', type, data)
+  contact: (type, data = {}) => ipcRenderer.invoke('contact', type, data),
+  wait: (type, callback) => ipcRenderer.on(type, callback)
 }
 
 if (process.contextIsolated) {

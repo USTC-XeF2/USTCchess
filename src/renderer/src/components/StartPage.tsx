@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { UploadOutlined } from '@ant-design/icons'
 import type { ButtonProps, CollapseProps, DescriptionsProps, SelectProps, UploadProps } from 'antd'
 import {
@@ -12,10 +12,12 @@ import {
   message,
   Select,
   Space,
+  Tooltip,
   Upload
 } from 'antd'
 
-import { Map } from 'src/types/map'
+import { Map, Version, VersionRange } from 'src/types/map'
+import { ExtensionInfo } from 'src/types/extension'
 
 import ChessboardComponent from './Chessboard'
 
@@ -25,7 +27,23 @@ const gamemodes: SelectProps['options'] = [
   { value: 'room-online', label: '房间模式', disabled: true }
 ]
 
+const isVersionInRange = (version: Version, range: VersionRange): boolean => {
+  return (
+    (range[0] === 'auto' || version >= range[0]) && (range[1] === 'auto' || version <= range[1])
+  )
+}
+
 function MapPreload({ mapData }: { mapData: Map }): JSX.Element {
+  const [extensions, setExtensions] = useState<ExtensionInfo[]>([])
+
+  useEffect(() => {
+    const fetchData = async (): Promise<void> => {
+      setExtensions(await window.electronAPI.getExtensionsInfo())
+    }
+    fetchData()
+    window.addEventListener('updatesettings', fetchData)
+  }, [])
+
   const basicInformation: DescriptionsProps['items'] = [
     {
       label: '名称',
@@ -48,26 +66,44 @@ function MapPreload({ mapData }: { mapData: Map }): JSX.Element {
   const otherInformation: CollapseProps['items'] = [
     {
       key: '1',
+      label: '扩展列表',
+      children: (
+        <Descriptions
+          items={Object.keys(mapData.extensions).map((key) => {
+            const extension = extensions.find((v) => v.key === key)
+            const state = !extension
+              ? 2
+              : isVersionInRange(extension.version, mapData.extensions[key])
+                ? 0
+                : 1
+            return {
+              label: key,
+              children: (
+                <Tooltip
+                  title={
+                    ['', `版本不符: 当前版本为${extension?.version.join('.')}`, '扩展不存在'][state]
+                  }
+                >
+                  <span style={{ color: ['green', 'gold', 'red'][state] }}>
+                    {mapData.extensions[key]
+                      .map((v) => (v === 'auto' ? '任意' : v.join('.')))
+                      .join(' - ')}
+                  </span>
+                </Tooltip>
+              )
+            }
+          })}
+        />
+      )
+    },
+    {
+      key: '2',
       label: '棋盘预览',
       children: (
         <ChessboardComponent
           chessboard={chessboard}
           intersection={mapData.chessboard.intersection}
           getCard={(id) => mapData.cards.find((v) => v.id === id)!}
-        />
-      )
-    },
-    {
-      key: '2',
-      label: '扩展列表',
-      children: (
-        <Descriptions
-          items={Object.keys(mapData.extensions).map((key) => ({
-            label: key,
-            children: mapData.extensions[key]
-              .map((v) => (v === 'auto' ? '任意' : v.join('.')))
-              .join('-')
-          }))}
         />
       )
     }
@@ -87,6 +123,13 @@ function StartPage(): JSX.Element {
   const [currentGamemode, setCurrentGamemode] = useState<string>('single')
   const [mapLoadError, setMapLoadError] = useState<boolean>(false)
   const [mapData, setMapData] = useState<Map>()
+
+  useEffect(() => {
+    const fetchData = async (): Promise<void> => {
+      setGameRunning(await window.electronAPI.getGameStatus())
+    }
+    fetchData()
+  }, [])
 
   const onStartGame: ButtonProps['onClick'] = async () => {
     if (mapLoadError) {

@@ -8,7 +8,7 @@ import {
   extensionPath,
   createMainWindow,
   analyzeMap,
-  getExtensions,
+  getExtensionsInfo,
   getEnabledExtensions,
   setEnabledExtensions,
   getSettings,
@@ -53,32 +53,35 @@ app.whenReady().then(() => {
     })
   })
 
-  function startGame(_e: IpcMainInvokeEvent, gamemode: string, mapData: Map): Promise<string> {
-    return new Promise((resolve) => {
-      if (isGameRunning) return resolve('游戏正在运行中')
-      if (gamemode == 'single') {
-        getUnusedPort()
-          .then((port) => {
-            new GameServer(mapData, port)
-            createClients(`localhost:${port}`, 2, restoreMainWindow)
-            isGameRunning = true
-            getSetting(_e, 'auto-minimize-mainwindow').then((flag) => {
-              if (flag) mainWindow.minimize()
-            })
-            resolve('')
-          })
-          .catch((err) => {
-            resolve(err)
-          })
-      } else {
-        resolve(`The gamemode '${gamemode}' has not been implemented yet.`)
+  async function startGame(
+    _e: IpcMainInvokeEvent,
+    gamemode: string,
+    mapData: Map
+  ): Promise<string> {
+    if (isGameRunning) return '游戏正在运行中'
+    if (gamemode === 'single') {
+      try {
+        const port = await getUnusedPort()
+        const server = new GameServer(mapData, port)
+        createClients(`localhost:${port}`, 2, '单人模式', () => {
+          server.stop()
+          restoreMainWindow()
+        })
+      } catch {
+        return 'Unknown error.'
       }
-    })
+    } else {
+      return `The gamemode '${gamemode}' has not been implemented yet.`
+    }
+    isGameRunning = true
+    if (await getSetting(_e, 'auto-minimize-mainwindow')) mainWindow.minimize()
+    return ''
   }
 
+  ipcMain.handle('get-game-status', () => isGameRunning)
   ipcMain.handle('start-game', startGame)
   ipcMain.handle('analyze-map', analyzeMap)
-  ipcMain.handle('get-extensions', getExtensions)
+  ipcMain.handle('get-extensions-info', getExtensionsInfo)
   ipcMain.handle('get-enabled-extensions', getEnabledExtensions)
   ipcMain.handle('set-enabled-extensions', setEnabledExtensions)
   ipcMain.handle('get-settings', getSettings)

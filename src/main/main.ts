@@ -1,12 +1,13 @@
 import { app, BrowserWindow, IpcMainInvokeEvent, shell } from 'electron'
-import { basename, extname, join } from 'node:path'
-import { access, mkdir, readdir, readFile, writeFile } from 'node:fs'
+import { extname, join } from 'node:path'
+import { promises as fsPromises } from 'node:fs'
 import { is } from '@electron-toolkit/utils'
 
 import type { Map } from '../types/map'
-import { ExtensionInfo } from '../types/extension'
+import { Extension, ExtensionInfo } from '../types/extension'
 import type { Settings } from '../types/settings'
 import { isMap } from '../utils/map'
+import { getInfo, isExtension } from '../utils/extension'
 import { defaultSettings } from '../utils/settings'
 
 let basePath: string
@@ -18,7 +19,7 @@ if (is.dev) {
 
 export const settingPath = join(basePath, './settings.json')
 export const extensionPath = join(basePath, './extensions')
-export const extensionConfigPath = join(extensionPath, 'config.json')
+export const extensionConfigPath = join(extensionPath, 'enabled.json')
 
 export function createMainWindow(): BrowserWindow {
   const mainWindow = new BrowserWindow({
@@ -52,130 +53,107 @@ export function createMainWindow(): BrowserWindow {
   return mainWindow
 }
 
-export function analyzeMap(_e: IpcMainInvokeEvent, text: string): Promise<Map> {
-  return new Promise((resolve, reject) => {
-    try {
-      const data = JSON.parse(text)
-      if (isMap(data)) {
-        resolve(data)
-      } else {
-        reject('The map file information is incomplete.')
-      }
-    } catch {
-      reject('The format of the file is incorrect.')
+export async function analyzeMap(_e: IpcMainInvokeEvent, text: string): Promise<Map> {
+  try {
+    const data = JSON.parse(text)
+    if (isMap(data)) {
+      return data
+    } else {
+      throw new Error('The map file information is incomplete.')
     }
-  })
+  } catch {
+    throw new Error('The format of the file is incorrect.')
+  }
 }
 
-export function getExtensions(): Promise<ExtensionInfo[]> {
-  return new Promise((resolve, reject) => {
-    access(extensionPath, (err) => {
-      if (err) {
-        mkdir(extensionPath, (err) => {
-          if (err) reject('Failed to create folder.')
-          else resolve([])
-        })
-      } else {
-        readdir(extensionPath, (err, files) => {
-          if (err) return reject('Failed to read folder.')
-          const extensions: ExtensionInfo[] = []
-          files.forEach((path, index) => {
-            if (extname(path) == '.js') {
-              // The metadata of the extensions should be read here
-              extensions.push({
-                key: index.toString(),
-                title: basename(path, '.js')
-              })
-            }
-          })
-          resolve(extensions)
-        })
+export async function getExtensions(): Promise<Extension[]> {
+  try {
+    await fsPromises.access(extensionPath)
+  } catch {
+    try {
+      await fsPromises.mkdir(extensionPath)
+      return []
+    } catch {
+      throw new Error('Failed to create folder.')
+    }
+  }
+  try {
+    const files = await fsPromises.readdir(extensionPath)
+    const extensions: Extension[] = []
+    const promises = files.map(async (path) => {
+      if (extname(path) === '.js') {
+        const module = await import(`file://${join(extensionPath, path)}`)
+        if (isExtension(module)) {
+          extensions.push(module)
+        }
       }
     })
-  })
+    await Promise.all(promises)
+    return extensions
+  } catch {
+    throw new Error('Failed to read folder or import modules.')
+  }
 }
 
-function getExtensionConfig(): Promise<object> {
-  return new Promise((resolve) => {
-    readFile(extensionConfigPath, (err, data) => {
-      if (err) {
-        return resolve({})
-      }
-      try {
-        resolve(JSON.parse(data.toString()))
-      } catch {
-        return resolve({})
-      }
-    })
-  })
+export async function getExtensionsInfo(): Promise<ExtensionInfo[]> {
+  return (await getExtensions()).map((extension) => getInfo(extension))
 }
 
-export function getEnabledExtensions(): Promise<ExtensionInfo['key'][]> {
-  return new Promise((resolve) => {
-    getExtensionConfig().then((config) => resolve(config['enabled-extensions']))
-  })
+export async function getEnabledExtensions(): Promise<ExtensionInfo['key'][]> {
+  try {
+    const data = await fsPromises.readFile(extensionConfigPath)
+    return JSON.parse(data.toString())
+  } catch {
+    return []
+  }
 }
 
-export function setEnabledExtensions(
+export async function setEnabledExtensions(
   _e: IpcMainInvokeEvent,
   enabledExtensions: ExtensionInfo['key'][]
 ): Promise<void> {
-  return new Promise((resolve, reject) => {
-    getExtensionConfig().then((config) => {
-      config['enabled-extensions'] = enabledExtensions
-      try {
-        writeFile(extensionConfigPath, JSON.stringify(config), () => {})
-        resolve()
-      } catch {
-        reject('Unknown error.')
-      }
-    })
-  })
+  try {
+    await fsPromises.writeFile(extensionConfigPath, JSON.stringify(enabledExtensions))
+  } catch {
+    throw new Error('Failed to write enabled extensions to file.')
+  }
 }
 
-export function getSettings(): Promise<Settings> {
-  return new Promise((resolve) => {
-    readFile(settingPath, (err, data) => {
-      if (err) {
-        return resolve(defaultSettings)
-      }
-      try {
-        resolve({ ...defaultSettings, ...JSON.parse(data.toString()) })
-      } catch {
-        return resolve(defaultSettings)
-      }
-    })
-  })
+export async function getSettings(): Promise<Settings> {
+  try {
+    const data = await fsPromises.readFile(settingPath)
+    return { ...defaultSettings, ...JSON.parse(data.toString()) }
+  } catch {
+    return defaultSettings
+  }
 }
 
-export function getSetting<T extends keyof Settings>(
+export async function getSetting<T extends keyof Settings>(
   _e: IpcMainInvokeEvent,
   key: T
 ): Promise<Settings[T]> {
-  return new Promise((resolve, reject) => {
-    getSettings().then((settings) => {
-      if (key in settings) {
-        resolve(settings[key])
-      } else {
-        reject(`The setting "${key}" does not exist.`)
-      }
-    })
-  })
+  try {
+    const settings = await getSettings()
+    if (key in settings) {
+      return settings[key]
+    } else {
+      throw new Error(`The setting "${key}" does not exist.`)
+    }
+  } catch {
+    throw new Error('Failed to get setting.')
+  }
 }
 
-export function changeSettings(
+export async function changeSettings(
   _e: IpcMainInvokeEvent,
   changedSettings: Partial<Settings>
 ): Promise<Settings> {
-  return new Promise((resolve, reject) =>
-    getSettings().then((settings) => {
-      const newSettings = { ...settings, ...changedSettings }
-      try {
-        writeFile(settingPath, JSON.stringify(newSettings), () => {})
-        resolve(newSettings)
-      } catch {
-        reject('Unknown error.')
-      }
-    })
-  )
+  try {
+    const settings = await getSettings()
+    const newSettings = { ...settings, ...changedSettings }
+    await fsPromises.writeFile(settingPath, JSON.stringify(newSettings))
+    return newSettings
+  } catch (error) {
+    throw new Error('Failed to change settings.')
+  }
 }

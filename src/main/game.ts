@@ -45,6 +45,10 @@ function createGameWindow(): BrowserWindow {
 
   gameWindow.setMenu(menu)
 
+  gameWindow.on('ready-to-show', () => {
+    gameWindow.show()
+  })
+
   gameWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url)
     return { action: 'deny' }
@@ -88,14 +92,6 @@ class GameClient {
     }, this.timeout)
   }
 
-  private initialGame(turn: number, mapData: GameMap): void {
-    this.turn = turn
-    this.mapData = mapData as GameMap
-    this.window.on('ready-to-show', () => {
-      this.window.show()
-    })
-  }
-
   private onMessage(rawData: RawData): void {
     let data: { type: string; data?: unknown; id?: string }
     try {
@@ -114,7 +110,9 @@ class GameClient {
       switch (data.type) {
         case 'connect-success': {
           const { turn, mapData } = data.data as { turn: number; mapData: GameMap }
-          this.initialGame(turn, mapData)
+          this.turn = turn
+          this.mapData = mapData
+          this.window.webContents.send('connect-success')
           this.isConnectSuccess = true
           break
         }
@@ -127,6 +125,9 @@ class GameClient {
           this.ws.close()
           this.close()
           break
+        case 'game-start':
+          this.window.webContents.send(data.type)
+          break
         default:
           dialog.showErrorBox('错误', `消息类型 ${data.type} 不存在`)
       }
@@ -136,18 +137,18 @@ class GameClient {
   contact(type: string, data?: unknown): Promise<Response> {
     return new Promise((resolve) => {
       switch (type) {
-        case 'get-turn':
-          resolve({ status: 'success', data: this.turn })
-          break
-        case 'get-map':
-          if (this.mapData) {
-            resolve({ status: 'success', data: this.mapData })
+        case 'get-info':
+          if (this.turn && this.mapData) {
+            resolve({ status: 'success', data: { turn: this.turn, mapData: this.mapData } })
           } else {
-            this.contactToServer('get-map').then(resolve)
+            resolve({ status: 'error', data: 'Fail to get info.' })
           }
           break
-        default:
+        case 'get-state':
           this.contactToServer(type, data).then(resolve)
+          break
+        default:
+          resolve({ status: 'error', data: 'Unknown type.' })
       }
     })
   }
@@ -155,68 +156,63 @@ class GameClient {
   contactToServer(type: string, data?: unknown): Promise<Response> {
     return new Promise((resolve) => {
       const messageId = Math.random().toString(36).substring(2)
-      const message = JSON.stringify({ type, data, id: messageId })
-
-      const onResponse = (response: Response): void => {
-        this.messageHandlers.delete(messageId)
-        resolve(response)
+      try {
+        const message = JSON.stringify({ type, data, id: messageId })
+        this.messageHandlers.set(messageId, (response: Response): void => {
+          this.messageHandlers.delete(messageId)
+          resolve(response)
+        })
+        this.ws.send(message)
+      } catch {
+        resolve({ status: 'error', data: 'Failed to send message.' })
       }
 
-      this.messageHandlers.set(messageId, onResponse)
-      this.ws.send(message)
-
-      // 可选：设置超时处理
       setTimeout(() => {
         if (this.messageHandlers.has(messageId)) {
           this.messageHandlers.delete(messageId)
-          resolve({ status: 'error', data: 'Timeout waiting for response' })
+          resolve({ status: 'error', data: 'Timeout waiting for response.' })
         }
       }, this.timeout)
     })
   }
 }
 
-export const checkOnClose = (): Promise<boolean> => {
-  return new Promise((resolve) => {
-    dialog
-      .showMessageBox({
-        type: 'warning',
-        buttons: ['确定', '取消'],
-        cancelId: 1,
-        title: '关闭游戏',
-        message: '游戏正在运行中，确定要退出游戏吗？'
-      })
-      .then((res) => {
-        resolve(!res.response)
-      })
+export const checkOnClose = async (): Promise<boolean> => {
+  const res = await dialog.showMessageBox({
+    type: 'warning',
+    buttons: ['确定', '取消'],
+    cancelId: 1,
+    title: '关闭游戏',
+    message: '游戏正在运行中，确定要退出游戏吗？'
   })
+  return res.response === 0
 }
 
-export function createClients(address: string, clientCount: number, stopGame: () => void): void {
+export function createClients(
+  address: string,
+  clientCount: number,
+  title: string,
+  stopGame: () => void
+): void {
   const gameClients = Array.from({ length: clientCount }, () => new GameClient(address, stopGame))
-  ipcMain.handle('contact', (_e: IpcMainInvokeEvent, type: string, data: unknown) => {
-    return new Promise((resolve, reject) => {
-      for (const c of gameClients) {
-        if (c.id === _e.sender.id) {
-          c.contact(type, data).then(resolve)
-          return
-        }
-      }
-      reject('The window is not a game window.')
-    })
+  ipcMain.handle('contact', async (_e: IpcMainInvokeEvent, type: string, data: unknown) => {
+    for (const c of gameClients) {
+      if (c.id === _e.sender.id) return await c.contact(type, data)
+    }
+    throw new Error('The window is not a game window.')
   })
   for (const c of gameClients) {
-    c.window.on('close', (e) => {
+    c.window.setTitle(`USTC棋-${title}`)
+    c.window.on('close', async (e) => {
       e.preventDefault()
-      checkOnClose().then((res) => {
-        if (res) {
-          for (const c of gameClients) {
-            c.window.destroy()
-          }
-          ipcMain.removeHandler('contact')
-          stopGame()
+      const res = await checkOnClose()
+      if (res) {
+        for (const c of gameClients) {
+          c.window.destroy()
         }
-      })
+        ipcMain.removeHandler('contact')
+        stopGame()
+      }
     })
   }
 }

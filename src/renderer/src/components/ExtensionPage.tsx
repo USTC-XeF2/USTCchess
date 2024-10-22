@@ -12,14 +12,14 @@ function ExtensionPage(): JSX.Element {
   useEffect(() => {
     const fetchData = async (): Promise<void> => {
       setEnableChangeFlag(await window.electronAPI.getSetting('auto-enable-extensions'))
-      setExtensions(await window.electronAPI.getExtensions())
+      setExtensions(await window.electronAPI.getExtensionsInfo())
       setEnabledExtensions(await window.electronAPI.getEnabledExtensions())
     }
     fetchData()
 
     window.addEventListener('updatesettings', async () => {
       setEnableChangeFlag(await window.electronAPI.getSetting('auto-enable-extensions'))
-      setExtensions(await window.electronAPI.getExtensions())
+      setExtensions(await window.electronAPI.getExtensionsInfo())
     })
   }, [])
 
@@ -62,7 +62,7 @@ function ExtensionPage(): JSX.Element {
       operations={['启用扩展']}
       targetKeys={enabledExtensions}
       onChange={onChange}
-      render={(item) => item.title}
+      render={(item) => `[${item.name}] ${item.key} v${item.version.join('.')}`}
       footer={renderFooter}
       oneWay
       pagination

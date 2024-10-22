@@ -3,7 +3,7 @@ import { createServer } from 'node:net'
 import { RawData, WebSocket, WebSocketServer } from 'ws'
 
 import { Chessboard } from '../types/chessboard'
-import { Map } from '../types/map'
+import { Map as GameMap } from '../types/map'
 import { generateChessboard } from '../utils/map'
 
 export const getUnusedPort = async (maxTryTimes: number = 10): Promise<number> => {
@@ -12,7 +12,9 @@ export const getUnusedPort = async (maxTryTimes: number = 10): Promise<number> =
     const server = createServer()
     try {
       await new Promise<void>((resolve, reject) => {
-        server.once('error', reject)
+        server.once('error', (err) => {
+          server.close(() => reject(err))
+        })
         server.once('listening', () => {
           server.close(() => resolve())
         })
@@ -27,11 +29,12 @@ export const getUnusedPort = async (maxTryTimes: number = 10): Promise<number> =
 }
 
 export class GameServer {
-  wss: WebSocketServer
-  mapData: Map
-  chessboard: Chessboard
-  currentTurn: number = 0
-  constructor(mapData: Map, port: number, openToLAN: boolean = false) {
+  private wss: WebSocketServer
+  private playerList: Map<WebSocket, number> = new Map()
+  private mapData: GameMap
+  private chessboard: Chessboard
+  private currentTurn: number = 0
+  constructor(mapData: GameMap, port: number, openToLAN: boolean = false) {
     this.wss = new WebSocketServer({ port, host: openToLAN ? '0.0.0.0' : 'localhost' })
     this.mapData = mapData
     this.chessboard = generateChessboard(mapData)
@@ -39,11 +42,7 @@ export class GameServer {
   }
 
   send(ws: WebSocket, type: string, data?: unknown, id?: string): void {
-    if (id) {
-      ws.send(JSON.stringify({ type, data, id }))
-    } else {
-      ws.send(JSON.stringify({ type, data }))
-    }
+    ws.send(JSON.stringify({ type, data, id }))
   }
 
   onConnection(ws: WebSocket): void {
@@ -52,24 +51,46 @@ export class GameServer {
       ws.close()
       return
     }
+    this.playerList.set(ws, this.wss.clients.size)
     ws.on('message', (data) => this.processMsg(ws, data))
+    ws.on('close', this.wss.close)
     this.send(ws, 'connect-success', { turn: this.wss.clients.size, mapData: this.mapData })
+    if (this.wss.clients.size === 2) {
+      this.start()
+    }
   }
 
   processMsg(ws: WebSocket, rawData: RawData): void {
     let data: { type: string; data?: unknown; id?: string }
     try {
       data = JSON.parse(rawData.toString())
+      if (!data || typeof data.type !== 'string') throw new Error()
     } catch {
       this.send(ws, 'error', `Invalid data: ${rawData}`)
       return
     }
     switch (data.type) {
-      case 'get-map':
-        this.send(ws, 'success', this.mapData, data.id)
+      case 'get-state':
+        this.send(
+          ws,
+          'success',
+          { currentTurn: this.currentTurn, chessboard: this.chessboard },
+          data.id
+        )
         break
       default:
         this.send(ws, 'error', `Invalid type: ${data.type}`, data.id)
     }
+  }
+
+  start(): void {
+    this.currentTurn = 1
+    for (const ws of this.wss.clients) {
+      this.send(ws, 'game-start')
+    }
+  }
+
+  stop(): void {
+    this.wss.close()
   }
 }

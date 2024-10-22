@@ -1,5 +1,6 @@
-appId: com.electron.app
+appId: com.xef2.ustcchess
 productName: ustcchess
+copyright: 'Coptright © 2024 ${author}, All rights reserved.'
 directories:
   buildResources: build
 files:

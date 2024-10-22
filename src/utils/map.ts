@@ -41,12 +41,13 @@ export function generateChessboard(mapData: Map): Chessboard {
   const chessboard = Array.from({ length: setting.height }, () =>
     Array.from({ length: setting.width }, () => null)
   )
+  let totalChess = 0
   for (const posString in mapData.chessboard.init) {
     if (!isPositionString(posString)) continue
     const id = mapData.chessboard.init[posString]
     const card = mapData.cards.filter((card) => card.id === id)
     if (card.length !== 1) continue
-    setChess(chessboard, parsePosition(posString), createChess(card[0]))
+    setChess(chessboard, parsePosition(posString), createChess(card[0], totalChess++))
   }
   return chessboard
 }

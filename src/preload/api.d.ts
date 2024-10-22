@@ -8,10 +8,12 @@ import { Response } from '../types/net'
 import { api } from './index'
 
 interface API {
+  getGameStatus: () => Promise<boolean>
   startGame: (gamemode: string, mapData: Map) => Promise<string>
   onStopGame: (callback: () => void) => IpcRenderer
+  generateChessboard: (mapData: Map) => Chessboard
   analyzeMap: (text: string) => Promise<Map>
-  getExtensions: () => Promise<ExtensionInfo[]>
+  getExtensionsInfo: () => Promise<ExtensionInfo[]>
   getEnabledExtensions: () => Promise<ExtensionInfo['key'][]>
   setEnabledExtensions: (enabledExtensions: ExtensionInfo['key'][]) => Promise<void>
   openExtensionFolder: () => void
@@ -19,9 +21,8 @@ interface API {
   getSetting: <T extends keyof Settings>(key: T) => Promise<Settings[T]>
   changeSettings: (changedSettings: Partial<Settings>) => Promise<Settings>
   getAbout: () => object[]
-  generateChessboard: (mapData: Map) => Chessboard
-  contact: (type: 'get-map') => Promise<Response>
-  contact: (type: string, data: unknown) => Promise<Response>
+  contact: (type: string, data?: unknown) => Promise<Response>
+  wait: (type: string, callback: () => void) => void
 }
 
 declare global {

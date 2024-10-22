@@ -46,9 +46,8 @@ export function parsePosition(posString: PositionString): Position {
   return JSON.parse(posString)
 }
 
-let totalChess = 0
-export function createChess(card: Card): Chess {
-  return { cardID: card.id, chessID: totalChess++ }
+export function createChess(card: Card, id: number): Chess {
+  return { cardID: card.id, chessID: id }
 }
 
 export function setChess(chessboard: Chessboard, pos: Position, chess: Chess): void {

@@ -1,15 +1,26 @@
 import './assets/game.css'
 
-import React, { useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 
-import { ConfigProvider } from 'antd'
+import { ConfigProvider, Spin } from 'antd'
 import enUS from 'antd/locale/en_US'
 import zhCN from 'antd/locale/zh_CN'
 
+import { Chessboard } from 'src/types/chessboard'
 import { Map } from 'src/types/map'
 
 import ChessboardComponent from './components/Chessboard'
+
+interface Info {
+  turn: number
+  mapData: Map
+}
+
+interface GameState {
+  currentTurn: number
+  chessboard: Chessboard
+}
 
 const localeOptions = {
   enUS: enUS,
@@ -17,37 +28,53 @@ const localeOptions = {
 }
 
 function App(): JSX.Element {
-  const [initialized, setInitialized] = useState<boolean>(false)
   const [locale, setLocale] = useState<string>('')
   const [primaryColor, setPrimaryColor] = useState<string>('')
-  const [mapData, setMapData] = useState<Map>()
+  const [info, setInfo] = useState<Info>()
+  const [gameState, setGameState] = useState<GameState>()
   const reload = async (): Promise<void> => {
     setLocale(await window.electronAPI.getSetting('language'))
     setPrimaryColor(await window.electronAPI.getSetting('primary-color'))
-    const res = await window.electronAPI.contact('get-map')
-    if (res.status !== 'success') {
-      console.error('Failed to get map data:', res.data)
-      return
-    }
-    setMapData(res.data as Map)
   }
-  if (!initialized) {
+  const getInfo = (): Promise<void> =>
+    window.electronAPI.contact('get-info').then((res) => {
+      if (res.status === 'success') setInfo(res.data as Info)
+    })
+  const getGameState = (): Promise<void> =>
+    window.electronAPI.contact('get-state').then((res) => {
+      if (res.status === 'success') setGameState(res.data as GameState)
+    })
+
+  useEffect(() => {
     reload()
-    setInitialized(true)
-  }
+    getInfo()
+    getGameState()
+  }, [])
 
-  if (!mapData) {
-    return <></>
-  }
-  const chessboard = window.electronAPI.generateChessboard(mapData)
+  window.electronAPI.wait('connect-success', () => {
+    getInfo()
+    getGameState()
+  })
+  window.electronAPI.wait('game-start', () => {
+    getGameState()
+  })
 
+  if (!info) return <Spin tip="连接服务器中..." fullscreen delay={100} />
+
+  const { turn, mapData } = info
   return (
     <ConfigProvider
       locale={localeOptions[locale]}
       theme={{ token: { colorPrimary: primaryColor } }}
     >
+      <span>本方阵营：{turn}</span>
+      {gameState?.currentTurn ? (
+        <span>当前回合：{gameState.currentTurn}</span>
+      ) : (
+        <Spin tip="等待游戏开始..." fullscreen delay={100} />
+      )}
       <ChessboardComponent
-        chessboard={chessboard}
+        chessboard={gameState?.chessboard || window.electronAPI.generateChessboard(mapData)}
         intersection={mapData.chessboard.intersection}
         getCard={(id) => mapData.cards.find((v) => v.id === id)!}
       />
