@@ -76,6 +76,7 @@ function App(): JSX.Element {
       <ChessboardComponent
         chessboard={gameState?.chessboard || window.electronAPI.generateChessboard(mapData)}
         intersection={mapData.chessboard.intersection}
+        reverse={turn === 2}
         getCard={(id) => mapData.cards.find((v) => v.id === id)!}
       />
     </ConfigProvider>
