@@ -5,7 +5,7 @@ import { Button, Card, ColorPicker, Descriptions, Form, Radio, Space, Switch, Sp
 
 import { Settings } from 'src/types/settings'
 
-const updateEvent = new Event('updatesettings')
+const updateEvent = new Event('update-settings')
 
 const languageOptions = [
   { label: 'English', value: 'enUS' },
@@ -70,7 +70,7 @@ function SettingPage(): JSX.Element {
       <Card title="游戏设置">
         <Form.Item
           name="auto-minimize-mainwindow"
-          label="自动最小化窗口"
+          label="自动最小化主窗口"
           extra="游戏启动后自动最小化主窗口"
         >
           <Switch />
@@ -80,7 +80,20 @@ function SettingPage(): JSX.Element {
         <Form.Item
           name="auto-enable-extensions"
           label="自动启用扩展"
-          extra="根据地图文件的配置自动启用/禁用扩展，此时“扩展”栏的选择无效"
+          extra="根据地图文件的配置自动启用/禁用扩展"
+        >
+          <Switch />
+        </Form.Item>
+        <Form.Item
+          name="check-extensions"
+          label="扩展检测"
+          extra={
+            <>
+              检测地图文件所需的扩展是否启用且匹配版本号
+              <br />
+              注：不检测手动导入的多余扩展
+            </>
+          }
         >
           <Switch />
         </Form.Item>

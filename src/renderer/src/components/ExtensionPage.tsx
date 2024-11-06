@@ -4,23 +4,26 @@ import { Alert, Button, Transfer } from 'antd'
 
 import { ExtensionInfo } from 'src/types/extension'
 
+const updateEvent = new Event('update-extensions')
+
 function ExtensionPage(): JSX.Element {
   const [enableChangeFlag, setEnableChangeFlag] = useState<boolean>(false)
   const [extensions, setExtensions] = useState<ExtensionInfo[]>([])
   const [enabledExtensions, setEnabledExtensions] = useState<TransferProps['targetKeys']>([])
 
   useEffect(() => {
-    const fetchData = async (): Promise<void> => {
-      setEnableChangeFlag(await window.electronAPI.getSetting('auto-enable-extensions'))
+    const updateExtensions = async (): Promise<void> => {
       setExtensions(await window.electronAPI.getExtensionsInfo())
       setEnabledExtensions(await window.electronAPI.getEnabledExtensions())
     }
-    fetchData()
-
-    window.addEventListener('updatesettings', async () => {
+    const updateSettings = async (): Promise<void> => {
       setEnableChangeFlag(await window.electronAPI.getSetting('auto-enable-extensions'))
-      setExtensions(await window.electronAPI.getExtensionsInfo())
-    })
+    }
+    updateExtensions()
+    updateSettings()
+
+    window.addEventListener('update-settings', updateSettings)
+    window.addEventListener('update-extensions', updateExtensions)
   }, [])
 
   const onChange: TransferProps['onChange'] = async (nextTargetKeys) => {
@@ -32,15 +35,22 @@ function ExtensionPage(): JSX.Element {
     if (info?.direction === 'left') {
       return (
         <>
-          <Button size="small" type="primary" ghost style={{ margin: 8 }}>
+          <Button size="small" type="primary" style={{ margin: 8 }}>
             导入扩展
+          </Button>
+          <Button
+            size="small"
+            onClick={() => window.dispatchEvent(updateEvent)}
+            style={{ margin: 8 }}
+          >
+            刷新列表
           </Button>
           <Button
             size="small"
             onClick={window.electronAPI.openExtensionFolder}
             style={{ margin: 8 }}
           >
-            打开扩展文件夹
+            打开文件夹
           </Button>
         </>
       )
@@ -62,7 +72,7 @@ function ExtensionPage(): JSX.Element {
       operations={['启用扩展']}
       targetKeys={enabledExtensions}
       onChange={onChange}
-      render={(item) => `[${item.name}] ${item.key} v${item.version.join('.')}`}
+      render={(item) => `[${item.name}] ${item.key} v${item.version}`}
       footer={renderFooter}
       oneWay
       pagination

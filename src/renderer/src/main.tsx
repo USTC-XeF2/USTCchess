@@ -50,7 +50,7 @@ function App(): JSX.Element {
     }
 
     reload()
-    window.addEventListener('updatesettings', reload)
+    window.addEventListener('update-settings', reload)
   }, [])
 
   useEffect(() => {

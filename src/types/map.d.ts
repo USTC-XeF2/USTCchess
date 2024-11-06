@@ -1,18 +1,16 @@
 import { Card, ChessboardSetting } from './chessboard'
 
-export type Version = number[]
-
-export type VersionRange = (Version | 'auto')[]
+export interface VersionRanges {
+  [key: string]: string
+}
 
 export interface Map {
   id: string
-  version: Version
+  version: string
   name: string
   author: string
   description: string
   cards: Card[]
   chessboard: ChessboardSetting
-  extensions: {
-    [key: string]: VersionRange
-  }
+  extensions: VersionRanges
 }

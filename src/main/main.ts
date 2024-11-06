@@ -1,9 +1,10 @@
-import { app, BrowserWindow, IpcMainInvokeEvent, shell } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import { extname, join } from 'node:path'
 import { promises as fsPromises } from 'node:fs'
 import { is } from '@electron-toolkit/utils'
+import semver from 'semver'
 
-import type { Map } from '../types/map'
+import type { Map, VersionRanges } from '../types/map'
 import { Extension, ExtensionInfo } from '../types/extension'
 import type { Settings } from '../types/settings'
 import { isMap } from '../utils/map'
@@ -53,16 +54,17 @@ export function createMainWindow(): BrowserWindow {
   return mainWindow
 }
 
-export async function analyzeMap(_e: IpcMainInvokeEvent, text: string): Promise<Map> {
+export async function analyzeMap(text: string): Promise<Map> {
+  let data
   try {
-    const data = JSON.parse(text)
-    if (isMap(data)) {
-      return data
-    } else {
-      throw new Error('The map file information is incomplete.')
-    }
+    data = JSON.parse(text)
   } catch {
     throw new Error('The format of the file is incorrect.')
+  }
+  if (isMap(data)) {
+    return data
+  } else {
+    throw new Error('The map file information is incomplete.')
   }
 }
 
@@ -80,15 +82,21 @@ export async function getExtensions(): Promise<Extension[]> {
   try {
     const files = await fsPromises.readdir(extensionPath)
     const extensions: Extension[] = []
-    const promises = files.map(async (path) => {
-      if (extname(path) === '.js') {
-        const module = await import(`file://${join(extensionPath, path)}`)
-        if (isExtension(module)) {
-          extensions.push(module)
-        }
+    for (const path of files) {
+      if (extname(path) !== '.js') continue
+      const modulePath = join(extensionPath, path)
+      try {
+        delete require.cache[require.resolve(modulePath)]
+      } catch {
+        // pass
       }
-    })
-    await Promise.all(promises)
+      try {
+        const module = require(modulePath)
+        if (isExtension(module)) extensions.push(module)
+      } catch {
+        // pass
+      }
+    }
     return extensions
   } catch {
     throw new Error('Failed to read folder or import modules.')
@@ -109,7 +117,6 @@ export async function getEnabledExtensions(): Promise<ExtensionInfo['key'][]> {
 }
 
 export async function setEnabledExtensions(
-  _e: IpcMainInvokeEvent,
   enabledExtensions: ExtensionInfo['key'][]
 ): Promise<void> {
   try {
@@ -117,6 +124,32 @@ export async function setEnabledExtensions(
   } catch {
     throw new Error('Failed to write enabled extensions to file.')
   }
+}
+
+export async function autoGetNeededExtensions(
+  neededExtensions: VersionRanges
+): Promise<Extension[]> {
+  const enableFlag = await getSetting('auto-enable-extensions')
+  let extList: ExtensionInfo['key'][] = []
+  if (enableFlag) {
+    extList = Object.keys(neededExtensions)
+  } else {
+    extList = await getEnabledExtensions()
+  }
+  return (await getExtensions()).filter((extension) => extList.includes(extension.key))
+}
+
+export function checkExtensions(
+  extensions: ExtensionInfo[],
+  neededExtensions: VersionRanges
+): boolean {
+  for (const [key, versionRange] of Object.entries(neededExtensions)) {
+    const extension = extensions.find((ext) => ext.key === key)
+    if (!(extension && semver.satisfies(extension.version, versionRange))) {
+      return false
+    }
+  }
+  return true
 }
 
 export async function getSettings(): Promise<Settings> {
@@ -128,10 +161,7 @@ export async function getSettings(): Promise<Settings> {
   }
 }
 
-export async function getSetting<T extends keyof Settings>(
-  _e: IpcMainInvokeEvent,
-  key: T
-): Promise<Settings[T]> {
+export async function getSetting<T extends keyof Settings>(key: T): Promise<Settings[T]> {
   try {
     const settings = await getSettings()
     if (key in settings) {
@@ -144,10 +174,7 @@ export async function getSetting<T extends keyof Settings>(
   }
 }
 
-export async function changeSettings(
-  _e: IpcMainInvokeEvent,
-  changedSettings: Partial<Settings>
-): Promise<Settings> {
+export async function changeSettings(changedSettings: Partial<Settings>): Promise<Settings> {
   try {
     const settings = await getSettings()
     const newSettings = { ...settings, ...changedSettings }

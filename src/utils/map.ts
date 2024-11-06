@@ -1,42 +1,53 @@
+import semver from 'semver'
+
 import type { Chessboard } from '../types/chessboard'
-import type { Map, Version, VersionRange } from '../types/map'
+import type { Map, VersionRanges } from '../types/map'
 import {
+  API,
   createChess,
   isCard,
   isChessboardSetting,
   isPositionString,
-  parsePosition,
-  setChess
+  parsePosition
 } from './chessboard'
 
-export function isVersion(obj): obj is Version {
-  return Array.isArray(obj) && obj.every((v) => typeof v === 'number')
-}
-
-export function isVersionRange(obj): obj is VersionRange {
-  return Array.isArray(obj) && obj.every((v) => isVersion(v) || v === 'auto')
+export function isVersionRanges(obj): obj is VersionRanges {
+  if (typeof obj !== 'object') return false
+  if (!Array.isArray(Object.values(obj))) return false
+  if (!Object.values(obj).every((v) => typeof v === 'string' && semver.validRange(v))) return false
+  return true
 }
 
 export function isMap(obj): obj is Map {
   if (typeof obj.id !== 'string') return false
+  if (!semver.valid(obj.version)) return false
   if (typeof obj.name !== 'string') return false
   if (typeof obj.author !== 'string') return false
   if (typeof obj.description !== 'string') return false
 
   if (!Array.isArray(obj.cards)) return false
   if (!obj.cards.every((card) => isCard(card))) return false
-
-  if (!isVersion(obj.version)) return false
   if (!isChessboardSetting(obj.chessboard)) return false
-
-  if (typeof obj.extensions !== 'object') return false
-  if (!Array.isArray(Object.values(obj.extensions))) return false
-  if (!Object.values(obj.extensions).every((v) => isVersionRange(v))) return false
+  if (!isVersionRanges(obj.extensions)) return false
 
   return true
 }
 
-export function generateChessboard(mapData: Map): Chessboard {
+export function getInfo(mapData: Map): [string, string] {
+  return [
+    `${mapData.name} v${mapData.version}`,
+    [
+      mapData.description,
+      `\n作者：${mapData.author}`,
+      '\n棋子：',
+      ...mapData.cards.map((card) => `    ${card.name}（${card.camp}阵营）`),
+      '\n扩展：',
+      ...Object.entries(mapData.extensions).map(([key, version]) => `    ${key}${version}`)
+    ].join('\n')
+  ]
+}
+
+export function generateChessboard(mapData: Map): [Chessboard, number] {
   const setting = mapData.chessboard
   const chessboard = Array.from({ length: setting.height }, () =>
     Array.from({ length: setting.width }, () => null)
@@ -47,7 +58,7 @@ export function generateChessboard(mapData: Map): Chessboard {
     const id = mapData.chessboard.init[posString]
     const card = mapData.cards.filter((card) => card.id === id)
     if (card.length !== 1) continue
-    setChess(chessboard, parsePosition(posString), createChess(card[0], totalChess++))
+    API.setChess(chessboard, parsePosition(posString), createChess(card[0], totalChess++))
   }
-  return chessboard
+  return [chessboard, totalChess]
 }

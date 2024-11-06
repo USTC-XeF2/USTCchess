@@ -1,9 +1,9 @@
 {
   "name": "ustcchess",
-  "version": "0.0.1",
-  "description": "the highly flexible and scalable game 'USTC Chess'",
+  "version": "0.1.0-alpha.1",
+  "description": "a highly flexible and scalable board game",
   "main": "./out/main/index.js",
-  "author": "XeF2",
+  "author": "XeF2, Lithium",
   "homepage": "https://github.com/USTC-XeF2/USTCchess",
   "scripts": {
     "format": "prettier --write .",
@@ -36,6 +36,7 @@
     "@types/node": "^20.14.8",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "@types/semver": "^7.5.8",
     "@vitejs/plugin-react": "^4.3.1",
     "autoprefixer": "^10.4.20",
     "electron": "^31.0.2",

@@ -22,7 +22,7 @@ interface API {
   changeSettings: (changedSettings: Partial<Settings>) => Promise<Settings>
   getAbout: () => object[]
   contact: (type: string, data?: unknown) => Promise<Response>
-  wait: (type: string, callback: () => void) => void
+  wait: (type: string, callback: (data?: unknown) => void) => void
 }
 
 declare global {

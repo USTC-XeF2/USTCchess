@@ -7,13 +7,13 @@ import { ConfigProvider, Spin } from 'antd'
 import enUS from 'antd/locale/en_US'
 import zhCN from 'antd/locale/zh_CN'
 
-import { Chessboard } from 'src/types/chessboard'
+import { Chessboard, Position } from 'src/types/chessboard'
 import { Map } from 'src/types/map'
 
 import ChessboardComponent from './components/Chessboard'
 
 interface Info {
-  turn: number
+  camp: number
   mapData: Map
 }
 
@@ -32,6 +32,7 @@ function App(): JSX.Element {
   const [primaryColor, setPrimaryColor] = useState<string>('')
   const [info, setInfo] = useState<Info>()
   const [gameState, setGameState] = useState<GameState>()
+  const [gameResult, setGameResult] = useState<string>('')
   const reload = async (): Promise<void> => {
     setLocale(await window.electronAPI.getSetting('language'))
     setPrimaryColor(await window.electronAPI.getSetting('primary-color'))
@@ -55,19 +56,21 @@ function App(): JSX.Element {
     getInfo()
     getGameState()
   })
-  window.electronAPI.wait('game-start', () => {
-    getGameState()
+  window.electronAPI.wait('game-start', getGameState)
+  window.electronAPI.wait('change-turn', getGameState)
+  window.electronAPI.wait('game-end', (data) => {
+    setGameResult(data as string)
   })
 
   if (!info) return <Spin tip="连接服务器中..." fullscreen delay={100} />
 
-  const { turn, mapData } = info
+  const { camp, mapData } = info
   return (
     <ConfigProvider
       locale={localeOptions[locale]}
       theme={{ token: { colorPrimary: primaryColor } }}
     >
-      <span>本方阵营：{turn}</span>
+      <span>本方阵营：{camp}</span>
       {gameState?.currentTurn ? (
         <span>当前回合：{gameState.currentTurn}</span>
       ) : (
@@ -76,9 +79,13 @@ function App(): JSX.Element {
       <ChessboardComponent
         chessboard={gameState?.chessboard || window.electronAPI.generateChessboard(mapData)}
         intersection={mapData.chessboard.intersection}
-        reverse={turn === 2}
-        getCard={(id) => mapData.cards.find((v) => v.id === id)!}
+        reverse={camp === 2}
+        move={(from, to) => window.electronAPI.contact('move', { from, to })}
+        getAvailableMoves={async (pos) =>
+          (await window.electronAPI.contact('get-available-moves', pos)).data as Position[]
+        }
       />
+      {gameResult ? <Spin tip={gameResult} fullscreen /> : null}
     </ConfigProvider>
   )
 }

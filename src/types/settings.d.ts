@@ -1,6 +1,7 @@
 export interface Settings {
   'auto-minimize-mainwindow': boolean
   'auto-enable-extensions': boolean
+  'check-extensions': boolean
   language: string
   'primary-color': string
 }

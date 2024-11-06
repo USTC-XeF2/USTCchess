@@ -18,7 +18,7 @@ const api: API = {
   changeSettings: (changedSettings) => ipcRenderer.invoke('change-settings', changedSettings),
   getAbout: () => ipcRenderer.sendSync('get-about'),
   contact: (type, data = {}) => ipcRenderer.invoke('contact', type, data),
-  wait: (type, callback) => ipcRenderer.on(type, callback)
+  wait: (type, callback) => ipcRenderer.on(type, (_e, data?) => callback(data))
 }
 
 if (process.contextIsolated) {

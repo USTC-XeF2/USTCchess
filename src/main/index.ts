@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, shell } from 'electron'
+import { app, BrowserWindow, ipcMain, shell } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 
 import { Map } from '../types/map'
@@ -11,6 +11,8 @@ import {
   getExtensionsInfo,
   getEnabledExtensions,
   setEnabledExtensions,
+  autoGetNeededExtensions,
+  checkExtensions,
   getSettings,
   getSetting,
   changeSettings
@@ -53,18 +55,20 @@ app.whenReady().then(() => {
     })
   })
 
-  async function startGame(
-    _e: IpcMainInvokeEvent,
-    gamemode: string,
-    mapData: Map
-  ): Promise<string> {
+  async function startGame(gamemode: string, mapData: Map): Promise<string> {
     if (isGameRunning) return '游戏正在运行中'
-    if (gamemode === 'single') {
+    if (gamemode === 'local-mode') {
       try {
+        const extensions = await autoGetNeededExtensions(mapData.extensions)
+        if (
+          (await getSetting('check-extensions')) &&
+          !checkExtensions(extensions, mapData.extensions)
+        )
+          return '地图所需扩展未启用或版本错误'
         const port = await getUnusedPort()
-        const server = new GameServer(mapData, port)
-        createClients(`localhost:${port}`, 2, '单人模式', () => {
-          server.stop()
+        const server = new GameServer(mapData, extensions, port)
+        createClients(`localhost:${port}`, 2, '本地模式', () => {
+          server.close()
           restoreMainWindow()
         })
       } catch {
@@ -74,19 +78,23 @@ app.whenReady().then(() => {
       return `The gamemode '${gamemode}' has not been implemented yet.`
     }
     isGameRunning = true
-    if (await getSetting(_e, 'auto-minimize-mainwindow')) mainWindow.minimize()
+    if (await getSetting('auto-minimize-mainwindow')) mainWindow.minimize()
     return ''
   }
 
+  const ignoreFirstArg = (func) => {
+    return (_e, ...args): unknown => func(...args)
+  }
+
   ipcMain.handle('get-game-status', () => isGameRunning)
-  ipcMain.handle('start-game', startGame)
-  ipcMain.handle('analyze-map', analyzeMap)
+  ipcMain.handle('start-game', ignoreFirstArg(startGame))
+  ipcMain.handle('analyze-map', ignoreFirstArg(analyzeMap))
   ipcMain.handle('get-extensions-info', getExtensionsInfo)
   ipcMain.handle('get-enabled-extensions', getEnabledExtensions)
-  ipcMain.handle('set-enabled-extensions', setEnabledExtensions)
+  ipcMain.handle('set-enabled-extensions', ignoreFirstArg(setEnabledExtensions))
   ipcMain.handle('get-settings', getSettings)
-  ipcMain.handle('get-setting', getSetting)
-  ipcMain.handle('change-settings', changeSettings)
+  ipcMain.handle('get-setting', ignoreFirstArg(getSetting))
+  ipcMain.handle('change-settings', ignoreFirstArg(changeSettings))
   ipcMain.on('open-extension-folder', () => {
     shell.openPath(extensionPath)
   })
@@ -101,7 +109,7 @@ app.whenReady().then(() => {
     }
   })
   ipcMain.on('generate-chessboard', (e, mapData: Map) => {
-    e.returnValue = generateChessboard(mapData)
+    e.returnValue = generateChessboard(mapData)[0]
   })
 
   app.on('activate', function () {

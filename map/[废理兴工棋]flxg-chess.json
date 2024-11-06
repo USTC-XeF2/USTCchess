@@ -1,15 +1,15 @@
 {
 	"id": "flxg-chess",
-	"version": [1, 0, 0],
+	"version": "1.0.0",
 	"name": "废理兴工棋",
-	"author": "XeF2",
+	"author": "Lithium",
 	"description": "来和坑坑一起废理兴工！",
 	"cards": [
 		{
 			"id": 1,
 			"name": "包包",
 			"camp": 1,
-			"walkRanges": [
+			"moveRanges": [
 				{ "direction": 1 },
 				{ "direction": 2 },
 				{ "direction": 3 },
@@ -24,7 +24,7 @@
 			"id": 2,
 			"name": "坑坑",
 			"camp": 2,
-			"walkRanges": [
+			"moveRanges": [
 				{ "direction": 1 },
 				{ "direction": 2 },
 				{ "direction": 3 },
@@ -39,7 +39,7 @@
 			"id": 3,
 			"name": "电磁",
 			"camp": 1,
-			"walkRanges": [
+			"moveRanges": [
 				{ "direction": 1 },
 				{ "direction": 3 },
 				{ "direction": 5 },
@@ -50,7 +50,7 @@
 			"id": 4,
 			"name": "算法",
 			"camp": 2,
-			"walkRanges": [
+			"moveRanges": [
 				{ "direction": 1 },
 				{ "direction": 3 },
 				{ "direction": 5 },
@@ -61,7 +61,7 @@
 			"id": 5,
 			"name": "光原",
 			"camp": 1,
-			"walkRanges": [
+			"moveRanges": [
 				{ "direction": 2 },
 				{ "direction": 4 },
 				{ "direction": 6 },
@@ -72,7 +72,7 @@
 			"id": 6,
 			"name": "密码",
 			"camp": 2,
-			"walkRanges": [
+			"moveRanges": [
 				{ "direction": 2 },
 				{ "direction": 4 },
 				{ "direction": 6 },
@@ -83,7 +83,7 @@
 			"id": 7,
 			"name": "热力",
 			"camp": 1,
-			"walkRanges": [
+			"moveRanges": [
 				{ "direction": 2 },
 				{ "direction": 5 },
 				{ "direction": 8 }
@@ -93,7 +93,7 @@
 			"id": 8,
 			"name": "协议",
 			"camp": 2,
-			"walkRanges": [
+			"moveRanges": [
 				{ "direction": 1 },
 				{ "direction": 4 },
 				{ "direction": 6 }
@@ -103,7 +103,7 @@
 			"id": 9,
 			"name": "大物实验",
 			"camp": 1,
-			"walkRanges": [
+			"moveRanges": [
 				{ "direction": 1 },
 				{ "direction": 2 },
 				{ "direction": 3 },
@@ -115,7 +115,7 @@
 			"id": 10,
 			"name": "系统控制",
 			"camp": 2,
-			"walkRanges": [
+			"moveRanges": [
 				{ "direction": 3 },
 				{ "direction": 4 },
 				{ "direction": 5 },
@@ -127,7 +127,7 @@
 			"id": 11,
 			"name": "理",
 			"camp": 1,
-			"walkRanges": [
+			"moveRanges": [
 				{ "direction": 2 },
 				{ "direction": 8 }
 			]
@@ -136,7 +136,7 @@
 			"id": 12,
 			"name": "工",
 			"camp": 2,
-			"walkRanges": [
+			"moveRanges": [
 				{ "direction": 4 },
 				{ "direction": 6 }
 			]
@@ -145,7 +145,7 @@
 			"id": 99,
 			"name": "学生",
 			"camp": 0,
-			"walkRanges": [
+			"moveRanges": [
 				{ "direction": 3 },
 				{ "direction": 7 }
 			]
@@ -154,13 +154,13 @@
 			"id": 101,
 			"name": "眼睛湖",
 			"camp": 0,
-			"walkRanges": []
+			"moveRanges": []
 		},
 		{
 			"id": 102,
 			"name": "也西湖",
 			"camp": 0,
-			"walkRanges": []
+			"moveRanges": []
 		}
 	],
 	"chessboard": {
@@ -204,6 +204,6 @@
 		}
 	},
 	"extensions": {
-		"flxg-chess": [[1, 0, 0], "auto"]
+		"flxg-chess": ">=1.0.0"
 	}
 }

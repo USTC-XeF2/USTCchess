@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import semver from 'semver'
 import { UploadOutlined } from '@ant-design/icons'
 import type { ButtonProps, CollapseProps, DescriptionsProps, SelectProps, UploadProps } from 'antd'
 import {
@@ -16,22 +17,16 @@ import {
   Upload
 } from 'antd'
 
-import { Map, Version, VersionRange } from 'src/types/map'
+import { Map } from 'src/types/map'
 import { ExtensionInfo } from 'src/types/extension'
 
 import ChessboardComponent from './Chessboard'
 
 const gamemodes: SelectProps['options'] = [
-  { value: 'single', label: '单人模式' },
+  { value: 'local-mode', label: '本地模式' },
   { value: 'quick-online', label: '快速联机', disabled: true },
   { value: 'room-online', label: '房间模式', disabled: true }
 ]
-
-const isVersionInRange = (version: Version, range: VersionRange): boolean => {
-  return (
-    (range[0] === 'auto' || version >= range[0]) && (range[1] === 'auto' || version <= range[1])
-  )
-}
 
 function MapPreload({ mapData }: { mapData: Map }): JSX.Element {
   const [extensions, setExtensions] = useState<ExtensionInfo[]>([])
@@ -41,7 +36,7 @@ function MapPreload({ mapData }: { mapData: Map }): JSX.Element {
       setExtensions(await window.electronAPI.getExtensionsInfo())
     }
     fetchData()
-    window.addEventListener('updatesettings', fetchData)
+    window.addEventListener('update-extensions', fetchData)
   }, [])
 
   const basicInformation: DescriptionsProps['items'] = [
@@ -51,7 +46,7 @@ function MapPreload({ mapData }: { mapData: Map }): JSX.Element {
     },
     {
       label: '版本',
-      children: mapData.version.join('.')
+      children: mapData.version
     },
     {
       label: '作者',
@@ -73,21 +68,17 @@ function MapPreload({ mapData }: { mapData: Map }): JSX.Element {
             const extension = extensions.find((v) => v.key === key)
             const state = !extension
               ? 2
-              : isVersionInRange(extension.version, mapData.extensions[key])
+              : semver.satisfies(extension.version, mapData.extensions[key])
                 ? 0
                 : 1
             return {
               label: key,
               children: (
                 <Tooltip
-                  title={
-                    ['', `版本不符: 当前版本为${extension?.version.join('.')}`, '扩展不存在'][state]
-                  }
+                  title={['', `版本不符: 当前版本为${extension?.version}`, '扩展不存在'][state]}
                 >
                   <span style={{ color: ['green', 'gold', 'red'][state] }}>
-                    {mapData.extensions[key]
-                      .map((v) => (v === 'auto' ? '任意' : v.join('.')))
-                      .join(' - ')}
+                    {mapData.extensions[key]}
                   </span>
                 </Tooltip>
               )
@@ -103,7 +94,7 @@ function MapPreload({ mapData }: { mapData: Map }): JSX.Element {
         <ChessboardComponent
           chessboard={chessboard}
           intersection={mapData.chessboard.intersection}
-          getCard={(id) => mapData.cards.find((v) => v.id === id)!}
+          getAvailableMoves={async () => []} // mapData上传至后端，建立GameData处理此函数
         />
       )
     }
@@ -120,7 +111,7 @@ function MapPreload({ mapData }: { mapData: Map }): JSX.Element {
 
 function StartPage(): JSX.Element {
   const [isGameRunning, setGameRunning] = useState<boolean>(false)
-  const [currentGamemode, setCurrentGamemode] = useState<string>('single')
+  const [currentGamemode, setCurrentGamemode] = useState<string>('local-mode')
   const [mapLoadError, setMapLoadError] = useState<boolean>(false)
   const [mapData, setMapData] = useState<Map>()
 
@@ -172,7 +163,7 @@ function StartPage(): JSX.Element {
             开始游戏
           </Button>
           <Select
-            defaultValue="single"
+            defaultValue="local-mode"
             style={{ width: '100%' }}
             onChange={(v) => {
               setCurrentGamemode(v)

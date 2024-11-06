@@ -1,6 +1,7 @@
 appId: com.xef2.ustcchess
-productName: ustcchess
-copyright: 'Coptright © 2024 ${author}, All rights reserved.'
+productName: USTC Chess
+buildVersion: 0.1.0.0
+copyright: 'Copyright © 2024 ${author}, All rights reserved.'
 directories:
   buildResources: build
 files:
@@ -15,10 +16,10 @@ asarUnpack:
 win:
   executableName: ustcchess
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
+  oneClick: false
   shortcutName: ${productName}
-  uninstallDisplayName: ${productName}
-  createDesktopShortcut: always
+  allowToChangeInstallationDirectory: true
+  language: 2052
 mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:

@@ -1,29 +1,23 @@
 import '../assets/chessboard.css'
 
-import { Card, Chessboard } from 'src/types/chessboard'
+import { Chessboard, Position } from 'src/types/chessboard'
 
 interface ChessboardComponentProps {
   chessboard: Chessboard
   intersection: boolean // 交叉点模式
   reverse?: boolean // 反方视角
-  getCard: (id: number) => Card
-}
-
-//未来加入接口：onClick(x, y) => void //点击棋子的回调
-function onClick(x: number, y: number): void {
-  const cellName = `cell-${x}-${y}`
-  const cellDiv = document.getElementById(cellName)
-  if (cellDiv) cellDiv.style.backgroundColor = 'yellow'
+  getAvailableMoves: (pos: Position) => Promise<Position[]>
+  move?: (from: Position, to: Position) => void
 }
 
 function ChessboardComponent({
   chessboard,
   intersection,
   reverse = false,
-  getCard
+  getAvailableMoves,
+  move
 }: ChessboardComponentProps): JSX.Element {
-  //intersection = false
-  console.log(intersection, reverse)
+  console.log(getAvailableMoves, move)
   const width = chessboard[0].length
   const height = chessboard.length
   function renderRows(): JSX.Element[] {
@@ -37,17 +31,15 @@ function ChessboardComponent({
           height: '50px'
         }
         cellStyle.color = chess
-          ? getCard(chess.cardID).camp == 0
-            ? 'green'
-            : getCard(chess.cardID).camp == 1
-              ? 'red'
-              : getCard(chess.cardID).camp == 2
-                ? 'blue'
-                : 'black'
+          ? chess.camp == 1
+            ? 'red'
+            : chess.camp == 2
+              ? 'blue'
+              : 'green'
           : 'black'
         cellsJSX.push(
-          <div style={cellStyle} id={`cell-${i}-${j}`}>
-            {chess ? getCard(chess.cardID).name : ''}
+          <div style={cellStyle} key={`cell-${i}-${j}`}>
+            {chess?.name}
           </div>
         )
       }
@@ -65,7 +57,5 @@ function ChessboardComponent({
     return <div id="board">{renderRows()}</div>
   } else return <div id="iboard">{renderRows()}</div>
 }
-
-export { ChessboardComponent, onClick }
 
 export default ChessboardComponent

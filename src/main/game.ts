@@ -1,13 +1,17 @@
-import { BrowserWindow, dialog, ipcMain, IpcMainInvokeEvent, Menu, shell } from 'electron'
+import { BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
 import { join } from 'node:path'
 import { RawData, WebSocket } from 'ws'
 import { is } from '@electron-toolkit/utils'
 
+import { autoGetNeededExtensions, checkExtensions } from './main'
+
+import { Chessboard, Position } from '../types/chessboard'
 import { Map as GameMap } from '../types/map'
-
 import { Response } from '../types/net'
+import { getInfo } from '../utils/map'
+import { GameData } from '../utils/game'
 
-function createGameWindow(): BrowserWindow {
+function createGameWindow(getInfo: () => [string, string]): BrowserWindow {
   const gameWindow = new BrowserWindow({
     width: 360,
     height: 600,
@@ -22,7 +26,18 @@ function createGameWindow(): BrowserWindow {
     {
       label: '游戏',
       submenu: [
-        { label: '查看地图信息' },
+        {
+          label: '查看地图信息',
+          click: (): void => {
+            const [title, detail] = getInfo()
+            dialog.showMessageBox({
+              type: 'info',
+              title: '地图信息',
+              message: title,
+              detail: detail
+            })
+          }
+        },
         { type: 'separator' },
         {
           label: '退出',
@@ -64,35 +79,44 @@ function createGameWindow(): BrowserWindow {
   return gameWindow
 }
 
-class GameClient {
+class GameClient extends GameData {
   id: number
   window: BrowserWindow
   // WebSocket
   private ws: WebSocket
-  private close: () => void
+  private close: (content?: string) => void
   private timeout: number
   private isConnectSuccess: boolean = false
   private messageHandlers: Map<string, (response: Response) => void> = new Map()
   // Game
-  private turn: number = 0
-  private mapData: GameMap | null = null
+  private camp: number = 0
+  isGameEnd: boolean = false
   constructor(address: string, close: () => void, timeout: number = 5000) {
-    this.close = close
-    this.timeout = timeout
+    super()
     this.ws = new WebSocket(`ws://${address}`)
+    this.close = (content?): void => {
+      if (content) dialog.showErrorBox('错误', content)
+      this.ws.close()
+      close()
+    }
+    this.timeout = timeout
     this.ws.on('message', this.onMessage.bind(this))
-    this.window = createGameWindow()
+    this.window = createGameWindow(() => {
+      if (this.mapData) {
+        return getInfo(this.mapData)
+      } else {
+        return ['未获取到地图信息', '']
+      }
+    })
     this.id = this.window.webContents.id
     setTimeout(() => {
       if (!this.isConnectSuccess) {
-        dialog.showErrorBox('错误', '连接超时')
-        this.ws.close()
-        this.close()
+        this.close('连接超时')
       }
     }, this.timeout)
   }
 
-  private onMessage(rawData: RawData): void {
+  private async onMessage(rawData: RawData): Promise<void> {
     let data: { type: string; data?: unknown; id?: string }
     try {
       data = JSON.parse(rawData.toString())
@@ -109,48 +133,63 @@ class GameClient {
     } else {
       switch (data.type) {
         case 'connect-success': {
-          const { turn, mapData } = data.data as { turn: number; mapData: GameMap }
-          this.turn = turn
+          const { camp, mapData } = data.data as { camp: number; mapData: GameMap }
+          this.camp = camp
           this.mapData = mapData
+          this.extensions = await autoGetNeededExtensions(this.mapData!.extensions)
+          if (!checkExtensions(this.extensions, this.mapData!.extensions)) {
+            this.close('地图所需扩展未启用或版本错误')
+          }
+          this.initialExtensions()
           this.window.webContents.send('connect-success')
           this.isConnectSuccess = true
           break
         }
         case 'connect-fail':
           if (data.data === 'too-many-clients') {
-            dialog.showErrorBox('错误', '游戏房间已满')
+            this.close('游戏房间已满')
           } else {
-            dialog.showErrorBox('错误', data.data as string)
+            this.close(data.data as string)
           }
-          this.ws.close()
-          this.close()
           break
         case 'game-start':
+        case 'change-turn':
           this.window.webContents.send(data.type)
           break
+        case 'game-end':
+          this.isGameEnd = true
+          this.window.webContents.send('game-end', data.data)
+          break
         default:
-          dialog.showErrorBox('错误', `消息类型 ${data.type} 不存在`)
+          console.error('Unknown Response:', data)
       }
     }
   }
 
-  contact(type: string, data?: unknown): Promise<Response> {
-    return new Promise((resolve) => {
-      switch (type) {
-        case 'get-info':
-          if (this.turn && this.mapData) {
-            resolve({ status: 'success', data: { turn: this.turn, mapData: this.mapData } })
-          } else {
-            resolve({ status: 'error', data: 'Fail to get info.' })
+  async contact(type: string, data?: unknown): Promise<Response> {
+    switch (type) {
+      case 'get-info':
+        if (this.camp && this.mapData) {
+          return { status: 'success', data: { camp: this.camp, mapData: this.mapData } }
+        } else {
+          return { status: 'error', data: 'Fail to get info.' }
+        }
+      case 'get-state': {
+        const res = await this.contactToServer(type, data)
+        if (res.status === 'success') {
+          if (res.data && typeof res.data === 'object' && 'chessboard' in res.data) {
+            this.chessboard = (res.data as { chessboard: Chessboard }).chessboard
           }
-          break
-        case 'get-state':
-          this.contactToServer(type, data).then(resolve)
-          break
-        default:
-          resolve({ status: 'error', data: 'Unknown type.' })
+        }
+        return res
       }
-    })
+      case 'get-available-moves':
+        return { status: 'success', data: this.getAvailableMoves(data as Position) }
+      case 'move':
+        return await this.contactToServer(type, data)
+      default:
+        return { status: 'error', data: 'Unknown type.' }
+    }
   }
 
   contactToServer(type: string, data?: unknown): Promise<Response> {
@@ -195,7 +234,7 @@ export function createClients(
   stopGame: () => void
 ): void {
   const gameClients = Array.from({ length: clientCount }, () => new GameClient(address, stopGame))
-  ipcMain.handle('contact', async (_e: IpcMainInvokeEvent, type: string, data: unknown) => {
+  ipcMain.handle('contact', async (_e, type: string, data: unknown) => {
     for (const c of gameClients) {
       if (c.id === _e.sender.id) return await c.contact(type, data)
     }
@@ -205,8 +244,7 @@ export function createClients(
     c.window.setTitle(`USTC棋-${title}`)
     c.window.on('close', async (e) => {
       e.preventDefault()
-      const res = await checkOnClose()
-      if (res) {
+      if (c.isGameEnd || (await checkOnClose())) {
         for (const c of gameClients) {
           c.window.destroy()
         }
