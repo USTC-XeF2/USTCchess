@@ -7,16 +7,13 @@ export class GameData {
   protected mapData: Map | null = null
   protected extensions: Extension[] = []
   protected chessboard: Chessboard = []
-  initialExtensions(
-    createChess: ((card: Card) => Chess) | null = null,
-    endGame: ((result: string) => void) | null = null
-  ): void {
+  initialExtensions(createChess: ((card: Card) => Chess) | null = null): void {
     const extensionAPI = {
       ...API,
       cards: this.mapData?.cards,
-      onChessDeath: this.onChessDeath,
+      onChessDeath: this.onChessDeath.bind(this),
       createChess: createChess,
-      endGame: endGame
+      endGame: this.endGame.bind(this)
     }
     for (const ext of this.extensions) {
       ext.API = extensionAPI
@@ -54,6 +51,7 @@ export class GameData {
   }
 
   onChessDeath(pos: Position, oldChess: Chess): void {
+    if (oldChess.isChief) this.endGame(oldChess.camp === 1 ? 2 : 1)
     for (const ext of this.extensions) {
       try {
         ext.onDeath?.(this.chessboard, pos, oldChess)
@@ -61,5 +59,10 @@ export class GameData {
         //pass
       }
     }
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  endGame(_winner: number, _info?: string): void {
+    // pass
   }
 }

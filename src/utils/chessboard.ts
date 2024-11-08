@@ -23,7 +23,8 @@ export function isCard(obj): obj is Card {
     typeof obj.name === 'string' &&
     typeof obj.camp === 'number' &&
     Array.isArray(obj.moveRanges) &&
-    obj.moveRanges.every((v) => isMoveRange(v))
+    obj.moveRanges.every((v) => isMoveRange(v)) &&
+    (typeof obj.isChief === 'boolean' || obj.isChief === undefined)
   )
 }
 

@@ -13,6 +13,25 @@
     background: var(--primary-color);
 }
 
+.ant-tabs-nav {
+    -webkit-app-region: drag;
+}
+
+#appTitle {
+    position: absolute;
+    top: 9px;
+    left: 12px;
+}
+
+#windowButtons {
+    position: absolute;
+    top: 12px;
+    right: 16px;
+}
+#windowButtons > div, .ant-tabs-tab {
+    -webkit-app-region: no-drag;
+}
+
 .ant-tabs-content {
     height: 100%;
     overflow-y: auto;

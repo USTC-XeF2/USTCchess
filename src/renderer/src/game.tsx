@@ -3,6 +3,7 @@ import './assets/game.css'
 import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 
+import { FrownOutlined, MehOutlined, SmileOutlined } from '@ant-design/icons'
 import { ConfigProvider, Spin } from 'antd'
 import enUS from 'antd/locale/en_US'
 import zhCN from 'antd/locale/zh_CN'
@@ -22,6 +23,11 @@ interface GameState {
   chessboard: Chessboard
 }
 
+interface GameResult {
+  winner: number
+  info?: string
+}
+
 const localeOptions = {
   enUS: enUS,
   zhCN: zhCN
@@ -32,7 +38,7 @@ function App(): JSX.Element {
   const [primaryColor, setPrimaryColor] = useState<string>('')
   const [info, setInfo] = useState<Info>()
   const [gameState, setGameState] = useState<GameState>()
-  const [gameResult, setGameResult] = useState<string>('')
+  const [gameResult, setGameResult] = useState<GameResult>()
   const reload = async (): Promise<void> => {
     setLocale(await window.electronAPI.getSetting('language'))
     setPrimaryColor(await window.electronAPI.getSetting('primary-color'))
@@ -52,14 +58,14 @@ function App(): JSX.Element {
     getGameState()
   }, [])
 
-  window.electronAPI.wait('connect-success', () => {
+  window.electronAPI.on('connect-success', () => {
     getInfo()
     getGameState()
   })
-  window.electronAPI.wait('game-start', getGameState)
-  window.electronAPI.wait('change-turn', getGameState)
-  window.electronAPI.wait('game-end', (data) => {
-    setGameResult(data as string)
+  window.electronAPI.on('game-start', getGameState)
+  window.electronAPI.on('change-turn', getGameState)
+  window.electronAPI.on('game-end', (data) => {
+    setGameResult(data as GameResult)
   })
 
   if (!info) return <Spin tip="连接服务器中..." fullscreen delay={100} />
@@ -85,7 +91,31 @@ function App(): JSX.Element {
           (await window.electronAPI.contact('get-available-moves', pos)).data as Position[]
         }
       />
-      {gameResult ? <Spin tip={gameResult} fullscreen /> : null}
+      {gameResult ? (
+        <Spin
+          indicator={
+            gameResult.winner ? (
+              gameResult.winner === camp ? (
+                <SmileOutlined />
+              ) : (
+                <FrownOutlined />
+              )
+            ) : (
+              <MehOutlined />
+            )
+          }
+          tip={
+            <>
+              <div style={{ fontSize: 24 }}>
+                {gameResult.winner ? `${gameResult.winner === 1 ? '红' : '蓝'}方胜利` : '平局'}
+              </div>
+              <div style={{ fontSize: 16 }}>{gameResult.info}</div>
+            </>
+          }
+          size="large"
+          fullscreen
+        />
+      ) : null}
     </ConfigProvider>
   )
 }

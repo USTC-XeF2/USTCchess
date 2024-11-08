@@ -45,7 +45,7 @@ export class GameServer extends GameData {
     this.extensions = extensions
     ;[this.chessboard, this.ChessID] = generateChessboard(mapData)
     this.wss = new WebSocketServer({ port, host: openToLAN ? '0.0.0.0' : 'localhost' })
-    this.initialExtensions((card) => createChess(card, this.ChessID++), this.endGame.bind(this))
+    this.initialExtensions((card) => createChess(card, this.ChessID++))
     this.wss.on('connection', this.onConnection.bind(this))
   }
 
@@ -131,10 +131,10 @@ export class GameServer extends GameData {
     return true
   }
 
-  endGame(result: string): void {
+  endGame(winner: number, info?: string): void {
     if (this.isGameEnd) return
     this.isGameEnd = true
-    this.sendAll('game-end', result)
+    this.sendAll('game-end', { winner, info })
     this.close()
   }
 }

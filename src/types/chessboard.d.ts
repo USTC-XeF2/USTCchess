@@ -11,6 +11,7 @@ export interface Card {
   name: string
   camp: number
   moveRanges: MoveRange[]
+  isChief?: boolean
 }
 
 export type Position = [number, number]

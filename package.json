@@ -1,6 +1,6 @@
 {
   "name": "ustcchess",
-  "version": "0.1.0-alpha.1",
+  "version": "0.1.0",
   "description": "a highly flexible and scalable board game",
   "main": "./out/main/index.js",
   "author": "XeF2, Lithium",

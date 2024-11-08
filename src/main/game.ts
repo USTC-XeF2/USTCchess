@@ -17,6 +17,7 @@ function createGameWindow(getInfo: () => [string, string]): BrowserWindow {
     height: 600,
     resizable: false,
     show: false,
+    icon: join(__dirname, '../../resources/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js')
     }
@@ -40,7 +41,7 @@ function createGameWindow(getInfo: () => [string, string]): BrowserWindow {
         },
         { type: 'separator' },
         {
-          label: '退出',
+          label: '退出游戏',
           click: (): void => {
             gameWindow.close()
           }
@@ -49,12 +50,7 @@ function createGameWindow(getInfo: () => [string, string]): BrowserWindow {
     },
     {
       label: '操作',
-      submenu: [
-        { label: '悔棋' },
-        { label: '撤销悔棋' },
-        { type: 'separator' },
-        { label: '显示行走提示' }
-      ]
+      submenu: [{ label: '悔棋' }, { label: '撤销悔棋' }]
     }
   ])
 
@@ -69,8 +65,6 @@ function createGameWindow(getInfo: () => [string, string]): BrowserWindow {
     return { action: 'deny' }
   })
 
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     gameWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/game.html`)
   } else {
@@ -241,7 +235,7 @@ export function createClients(
     throw new Error('The window is not a game window.')
   })
   for (const c of gameClients) {
-    c.window.setTitle(`USTC棋-${title}`)
+    c.window.setTitle(title)
     c.window.on('close', async (e) => {
       e.preventDefault()
       if (c.isGameEnd || (await checkOnClose())) {

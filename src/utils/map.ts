@@ -40,7 +40,10 @@ export function getInfo(mapData: Map): [string, string] {
       mapData.description,
       `\n作者：${mapData.author}`,
       '\n棋子：',
-      ...mapData.cards.map((card) => `    ${card.name}（${card.camp}阵营）`),
+      ...mapData.cards.map(
+        (card) =>
+          `    ${card.name}${card.isChief ? '（首领）' : ''} - ${['中立', '红方', '蓝方'][card.camp]}`
+      ),
       '\n扩展：',
       ...Object.entries(mapData.extensions).map(([key, version]) => `    ${key}${version}`)
     ].join('\n')

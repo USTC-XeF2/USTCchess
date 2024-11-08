@@ -1,5 +1,5 @@
-import { app, BrowserWindow, shell } from 'electron'
-import { extname, join } from 'node:path'
+import { app, BrowserWindow, dialog, shell } from 'electron'
+import { basename, extname, join } from 'node:path'
 import { promises as fsPromises } from 'node:fs'
 import { is } from '@electron-toolkit/utils'
 import semver from 'semver'
@@ -11,16 +11,9 @@ import { isMap } from '../utils/map'
 import { getInfo, isExtension } from '../utils/extension'
 import { defaultSettings } from '../utils/settings'
 
-let basePath: string
-if (is.dev) {
-  basePath = app.getAppPath()
-} else {
-  basePath = join(app.getPath('exe'), '../')
-}
-
-export const settingPath = join(basePath, './settings.json')
-export const extensionPath = join(basePath, './extensions')
-export const extensionConfigPath = join(extensionPath, 'enabled.json')
+const basePath = join(app.getPath('userData'), 'Local Storage')
+const lastLoadedPath = join(basePath, 'last-loaded.json')
+const settingPath = join(basePath, 'settings.json')
 
 export function createMainWindow(): BrowserWindow {
   const mainWindow = new BrowserWindow({
@@ -30,6 +23,8 @@ export function createMainWindow(): BrowserWindow {
     minHeight: 480,
     show: false,
     autoHideMenuBar: true,
+    frame: false,
+    icon: join(__dirname, '../../resources/icon.png'),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js')
     }
@@ -44,23 +39,39 @@ export function createMainWindow(): BrowserWindow {
     return { action: 'deny' }
   })
 
-  // HMR for renderer base on electron-vite cli.
-  // Load the remote URL for development or the local html file for production.
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/main.html`)
   } else {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      if (input.control && input.key.toLowerCase() === 'r') {
+        event.preventDefault()
+      }
+    })
     mainWindow.loadFile(join(__dirname, '../renderer/main.html'))
   }
   return mainWindow
 }
 
-export async function analyzeMap(text: string): Promise<Map> {
-  let data
+export async function getLastLoaded(): Promise<object> {
   try {
-    data = JSON.parse(text)
+    const data = await fsPromises.readFile(lastLoadedPath)
+    return JSON.parse(data.toString())
   } catch {
-    throw new Error('The format of the file is incorrect.')
+    return {}
   }
+}
+
+export async function changeLastLoaded(key: string, value: unknown): Promise<void> {
+  try {
+    const lastLoaded = await getLastLoaded()
+    await fsPromises.writeFile(lastLoadedPath, JSON.stringify({ ...lastLoaded, [key]: value }))
+  } catch {
+    // pass
+  }
+}
+
+export async function analyzeMap(filePath: string): Promise<Map> {
+  const data = JSON.parse(await fsPromises.readFile(filePath, 'utf-8'))
   if (isMap(data)) {
     return data
   } else {
@@ -69,6 +80,7 @@ export async function analyzeMap(text: string): Promise<Map> {
 }
 
 export async function getExtensions(): Promise<Extension[]> {
+  const extensionPath = await getSetting('extensions-save-path')
   try {
     await fsPromises.access(extensionPath)
   } catch {
@@ -109,8 +121,8 @@ export async function getExtensionsInfo(): Promise<ExtensionInfo[]> {
 
 export async function getEnabledExtensions(): Promise<ExtensionInfo['key'][]> {
   try {
-    const data = await fsPromises.readFile(extensionConfigPath)
-    return JSON.parse(data.toString())
+    const lastLoaded = await getLastLoaded()
+    return lastLoaded['enabled-extensions'] || []
   } catch {
     return []
   }
@@ -120,10 +132,28 @@ export async function setEnabledExtensions(
   enabledExtensions: ExtensionInfo['key'][]
 ): Promise<void> {
   try {
-    await fsPromises.writeFile(extensionConfigPath, JSON.stringify(enabledExtensions))
+    await changeLastLoaded('enabled-extensions', enabledExtensions)
   } catch {
     throw new Error('Failed to write enabled extensions to file.')
   }
+}
+
+export async function importExtensions(): Promise<void> {
+  const result = await dialog.showOpenDialog({
+    title: '导入扩展',
+    buttonLabel: '导入',
+    filters: [
+      { name: 'JavaScript Files', extensions: ['js'] },
+      { name: 'All Files', extensions: ['*'] }
+    ],
+    properties: ['multiSelections']
+  })
+  const extensionPath = await getSetting('extensions-save-path')
+  await Promise.all(
+    result.filePaths.map((filePath) =>
+      fsPromises.copyFile(filePath, join(extensionPath, basename(filePath)))
+    )
+  )
 }
 
 export async function autoGetNeededExtensions(
@@ -153,12 +183,17 @@ export function checkExtensions(
 }
 
 export async function getSettings(): Promise<Settings> {
+  let settings: Settings
   try {
     const data = await fsPromises.readFile(settingPath)
-    return { ...defaultSettings, ...JSON.parse(data.toString()) }
+    settings = { ...defaultSettings, ...JSON.parse(data.toString()) }
   } catch {
-    return defaultSettings
+    settings = defaultSettings
   }
+  if (!settings['extensions-save-path']) {
+    settings['extensions-save-path'] = join(basePath, 'extensions')
+  }
+  return settings
 }
 
 export async function getSetting<T extends keyof Settings>(key: T): Promise<Settings[T]> {
@@ -174,13 +209,26 @@ export async function getSetting<T extends keyof Settings>(key: T): Promise<Sett
   }
 }
 
-export async function changeSettings(changedSettings: Partial<Settings>): Promise<Settings> {
+export async function changeSettings(changedSettings: Partial<Settings>): Promise<void> {
   try {
-    const settings = await getSettings()
-    const newSettings = { ...settings, ...changedSettings }
+    const newSettings = { ...(await getSettings()), ...changedSettings }
     await fsPromises.writeFile(settingPath, JSON.stringify(newSettings))
-    return newSettings
   } catch (error) {
     throw new Error('Failed to change settings.')
   }
+}
+
+export async function openExtensionFolder(): Promise<void> {
+  shell.openPath(await getSetting('extensions-save-path'))
+}
+
+export async function chooseExtensionFolder(): Promise<void> {
+  const result = await dialog.showOpenDialog({
+    title: '选择扩展存储路径',
+    defaultPath: await getSetting('extensions-save-path'),
+    buttonLabel: '选择',
+    properties: ['openDirectory']
+  })
+  if (result.canceled) return
+  await changeSettings({ 'extensions-save-path': result.filePaths[0] })
 }

@@ -18,7 +18,8 @@
 				{ "direction": 6 },
 				{ "direction": 7 },
 				{ "direction": 8 }
-			]
+			],
+			"isChief": true
 		},
 		{
 			"id": 2,
@@ -33,7 +34,8 @@
 				{ "direction": 6 },
 				{ "direction": 7 },
 				{ "direction": 8 }
-			]
+			],
+			"isChief": true
 		},
 		{
 			"id": 3,
@@ -152,7 +154,7 @@
 		},
 		{
 			"id": 101,
-			"name": "眼睛湖",
+			"name": "眼镜湖",
 			"camp": 0,
 			"moveRanges": []
 		},

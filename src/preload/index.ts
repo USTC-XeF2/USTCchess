@@ -3,22 +3,28 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { API } from './api'
 
 const api: API = {
+  on: (type, callback) => ipcRenderer.on(type, (_e, data?) => callback(data)),
+  getIsDark: () => ipcRenderer.invoke('get-is-dark'),
+  controlWindow: (action) => ipcRenderer.send('control-window', action),
   getGameStatus: () => ipcRenderer.invoke('get-game-status'),
   startGame: (gamemode, mapData) => ipcRenderer.invoke('start-game', gamemode, mapData),
   onStopGame: (callback) => ipcRenderer.on('stop-game', callback),
-  generateChessboard: (mapData) => ipcRenderer.sendSync('generate-chessboard', mapData),
-  analyzeMap: (text) => ipcRenderer.invoke('analyze-map', text),
+  getMap: () => ipcRenderer.sendSync('get-map'),
+  chooseMap: () => ipcRenderer.invoke('choose-map'),
+  generateChessboard: (mapData = undefined) => ipcRenderer.sendSync('generate-chessboard', mapData),
+  getAvailableMoves: (pos) => ipcRenderer.sendSync('get-available-moves', pos),
   getExtensionsInfo: () => ipcRenderer.invoke('get-extensions-info'),
   getEnabledExtensions: () => ipcRenderer.invoke('get-enabled-extensions'),
   setEnabledExtensions: (enabledExtensions) =>
     ipcRenderer.invoke('set-enabled-extensions', enabledExtensions),
-  openExtensionFolder: () => ipcRenderer.send('open-extension-folder'),
+  importExtensions: () => ipcRenderer.invoke('import-extensions'),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   getSetting: (value) => ipcRenderer.invoke('get-setting', value),
   changeSettings: (changedSettings) => ipcRenderer.invoke('change-settings', changedSettings),
+  openExtensionFolder: () => ipcRenderer.send('open-extension-folder'),
+  chooseExtensionFolder: () => ipcRenderer.invoke('choose-extension-folder'),
   getAbout: () => ipcRenderer.sendSync('get-about'),
-  contact: (type, data = {}) => ipcRenderer.invoke('contact', type, data),
-  wait: (type, callback) => ipcRenderer.on(type, (_e, data?) => callback(data))
+  contact: (type, data = {}) => ipcRenderer.invoke('contact', type, data)
 }
 
 if (process.contextIsolated) {

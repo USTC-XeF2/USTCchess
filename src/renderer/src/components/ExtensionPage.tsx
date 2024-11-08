@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react'
+import { ReloadOutlined, SelectOutlined } from '@ant-design/icons'
 import type { TransferProps } from 'antd'
-import { Alert, Button, Transfer } from 'antd'
+import { Alert, Button, Flex, Transfer } from 'antd'
 
 import { ExtensionInfo } from 'src/types/extension'
 
-const updateEvent = new Event('update-extensions')
+const updateEvent = new Event('update-mainwindow')
 
 function ExtensionPage(): JSX.Element {
   const [enableChangeFlag, setEnableChangeFlag] = useState<boolean>(false)
@@ -12,18 +13,14 @@ function ExtensionPage(): JSX.Element {
   const [enabledExtensions, setEnabledExtensions] = useState<TransferProps['targetKeys']>([])
 
   useEffect(() => {
-    const updateExtensions = async (): Promise<void> => {
+    const fetchData = async (): Promise<void> => {
+      setEnableChangeFlag(await window.electronAPI.getSetting('auto-enable-extensions'))
       setExtensions(await window.electronAPI.getExtensionsInfo())
       setEnabledExtensions(await window.electronAPI.getEnabledExtensions())
     }
-    const updateSettings = async (): Promise<void> => {
-      setEnableChangeFlag(await window.electronAPI.getSetting('auto-enable-extensions'))
-    }
-    updateExtensions()
-    updateSettings()
+    fetchData()
 
-    window.addEventListener('update-settings', updateSettings)
-    window.addEventListener('update-extensions', updateExtensions)
+    window.addEventListener('update-mainwindow', fetchData)
   }, [])
 
   const onChange: TransferProps['onChange'] = async (nextTargetKeys) => {
@@ -34,25 +31,31 @@ function ExtensionPage(): JSX.Element {
   const renderFooter: TransferProps['footer'] = (_, info) => {
     if (info?.direction === 'left') {
       return (
-        <>
-          <Button size="small" type="primary" style={{ margin: 8 }}>
+        <Flex justify="space-between">
+          <Button
+            size="small"
+            type="primary"
+            icon={<SelectOutlined />}
+            iconPosition="end"
+            onClick={() => {
+              window.electronAPI.importExtensions().then(() => {
+                window.dispatchEvent(updateEvent)
+              })
+            }}
+            style={{ margin: 8 }}
+          >
             导入扩展
           </Button>
           <Button
             size="small"
+            icon={<ReloadOutlined />}
+            iconPosition="end"
             onClick={() => window.dispatchEvent(updateEvent)}
             style={{ margin: 8 }}
           >
-            刷新列表
+            刷新
           </Button>
-          <Button
-            size="small"
-            onClick={window.electronAPI.openExtensionFolder}
-            style={{ margin: 8 }}
-          >
-            打开文件夹
-          </Button>
-        </>
+        </Flex>
       )
     } else {
       return (

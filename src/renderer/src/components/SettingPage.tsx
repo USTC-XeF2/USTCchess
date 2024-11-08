@@ -1,15 +1,34 @@
 import { useState, useEffect } from 'react'
+import { EditOutlined, FolderOpenOutlined, ReloadOutlined } from '@ant-design/icons'
 import { blue, cyan, gold, gray, green, orange, purple, red } from '@ant-design/colors'
 import type { ColorPickerProps, DescriptionsProps } from 'antd'
-import { Button, Card, ColorPicker, Descriptions, Form, Radio, Space, Switch, Spin } from 'antd'
+import {
+  Button,
+  Card,
+  ColorPicker,
+  Descriptions,
+  Form,
+  Input,
+  Radio,
+  Space,
+  Switch,
+  Spin,
+  Divider
+} from 'antd'
 
 import { Settings } from 'src/types/settings'
 
-const updateEvent = new Event('update-settings')
+const updateEvent = new Event('update-mainwindow')
 
 const languageOptions = [
-  { label: 'English', value: 'enUS' },
+  // { label: 'English', value: 'enUS' },
   { label: '简体中文', value: 'zhCN' }
+]
+
+const themeOptions = [
+  { label: '浅色', value: 'light' },
+  { label: '深色', value: 'dark' },
+  { label: '跟随系统', value: 'auto' }
 ]
 
 const presetColors: ColorPickerProps['presets'] = [
@@ -49,15 +68,16 @@ function SettingPage(): JSX.Element {
   const [form] = Form.useForm<Settings>()
 
   useEffect(() => {
-    const fetchSettings = async (): Promise<void> => {
-      setSettings(await window.electronAPI.getSettings())
-      window.dispatchEvent(updateEvent)
-    }
-    fetchSettings()
+    window.addEventListener('update-mainwindow', async () => {
+      const newSettings = await window.electronAPI.getSettings()
+      setSettings(newSettings)
+      form.setFieldsValue(newSettings)
+    })
+    window.dispatchEvent(updateEvent)
   }, [])
 
   const onChangeSettings = async (changedSettings: Partial<Settings>): Promise<void> => {
-    setSettings(await window.electronAPI.changeSettings(changedSettings))
+    await window.electronAPI.changeSettings(changedSettings)
     window.dispatchEvent(updateEvent)
   }
 
@@ -97,10 +117,31 @@ function SettingPage(): JSX.Element {
         >
           <Switch />
         </Form.Item>
+        <Form.Item name="extensions-save-path" label="扩展存储路径">
+          <Input
+            readOnly
+            addonAfter={
+              <Space size={2} split={<Divider type="vertical" />}>
+                <EditOutlined
+                  onClick={() =>
+                    window.electronAPI
+                      .chooseExtensionFolder()
+                      .then(() => window.dispatchEvent(updateEvent))
+                  }
+                />
+                <FolderOpenOutlined onClick={window.electronAPI.openExtensionFolder} />
+                <ReloadOutlined onClick={() => onChangeSettings({ 'extensions-save-path': '' })} />
+              </Space>
+            }
+          />
+        </Form.Item>
       </Card>
       <Card title="个性化">
-        <Form.Item name="language" label="语言" extra="目前只支持极少部分组件">
+        <Form.Item name="language" label="语言">
           <Radio.Group options={languageOptions} optionType="button" />
+        </Form.Item>
+        <Form.Item name="theme" label="主题样式">
+          <Radio.Group options={themeOptions} optionType="button" />
         </Form.Item>
         <Form.Item label="主题色">
           <Space>

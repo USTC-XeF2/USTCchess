@@ -1,11 +1,20 @@
 import './assets/main.css'
+import icon from './assets/icon.png'
 
 import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 
-import { HomeOutlined, AppstoreOutlined, SettingOutlined } from '@ant-design/icons'
+import {
+  AppstoreOutlined,
+  BlockOutlined,
+  BorderOutlined,
+  CloseOutlined,
+  HomeOutlined,
+  LineOutlined,
+  SettingOutlined
+} from '@ant-design/icons'
 import type { TabsProps } from 'antd'
-import { ConfigProvider, Tabs } from 'antd'
+import { Button, ConfigProvider, Image, Space, Tabs, theme, Typography } from 'antd'
 import enUS from 'antd/locale/en_US'
 import zhCN from 'antd/locale/zh_CN'
 
@@ -40,29 +49,76 @@ const localeOptions = {
 }
 
 function App(): JSX.Element {
+  const [isMaximized, setMaximized] = useState<boolean>(false)
   const [locale, setLocale] = useState<string>('')
+  const [isDark, setIsDark] = useState<boolean>(false)
   const [primaryColor, setPrimaryColor] = useState<string>('')
 
   useEffect(() => {
     const reload = async (): Promise<void> => {
       setLocale(await window.electronAPI.getSetting('language'))
+      setIsDark(await window.electronAPI.getIsDark())
       setPrimaryColor(await window.electronAPI.getSetting('primary-color'))
     }
 
     reload()
-    window.addEventListener('update-settings', reload)
+    window.addEventListener('update-mainwindow', reload)
+    window.electronAPI.on('update-theme', reload)
+    window.electronAPI.on('window-maximize', (val) => setMaximized(val as boolean))
   }, [])
 
   useEffect(() => {
     document.documentElement.style.setProperty('--primary-color', primaryColor)
   }, [primaryColor])
 
+  const titleBar = {
+    left: (
+      <Space id="appTitle">
+        <Image src={icon} preview={false} style={{ height: 24 }} />
+        <Typography.Title level={4} style={{ margin: 0 }}>
+          USTC Chess
+        </Typography.Title>
+      </Space>
+    ),
+    right: (
+      <Space id="windowButtons">
+        <Button
+          type="text"
+          icon={<LineOutlined />}
+          size="small"
+          onClick={() => window.electronAPI.controlWindow('minimize')}
+        />
+        <Button
+          type="text"
+          icon={isMaximized ? <BlockOutlined rotate={90} /> : <BorderOutlined />}
+          size="small"
+          onClick={() => window.electronAPI.controlWindow('maximize')}
+        />
+        <Button
+          type="text"
+          icon={<CloseOutlined />}
+          size="small"
+          onClick={() => window.electronAPI.controlWindow('close')}
+        />
+      </Space>
+    )
+  }
+
   return (
     <ConfigProvider
       locale={localeOptions[locale]}
-      theme={{ token: { colorPrimary: primaryColor } }}
+      theme={{
+        token: { colorPrimary: primaryColor },
+        algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm
+      }}
     >
-      <Tabs defaultActiveKey="1" centered items={tabItems} style={{ height: '100vh' }} />
+      <Tabs
+        tabBarExtraContent={titleBar}
+        defaultActiveKey="start"
+        centered
+        items={tabItems}
+        style={{ height: '100vh' }}
+      />
     </ConfigProvider>
   )
 }

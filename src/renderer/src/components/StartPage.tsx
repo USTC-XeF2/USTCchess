@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import semver from 'semver'
-import { UploadOutlined } from '@ant-design/icons'
-import type { ButtonProps, CollapseProps, DescriptionsProps, SelectProps, UploadProps } from 'antd'
+import { SelectOutlined } from '@ant-design/icons'
+import type { ButtonProps, CollapseProps, DescriptionsProps, SelectProps } from 'antd'
 import {
   Alert,
   Button,
@@ -13,8 +13,7 @@ import {
   message,
   Select,
   Space,
-  Tooltip,
-  Upload
+  Tooltip
 } from 'antd'
 
 import { Map } from 'src/types/map'
@@ -36,7 +35,7 @@ function MapPreload({ mapData }: { mapData: Map }): JSX.Element {
       setExtensions(await window.electronAPI.getExtensionsInfo())
     }
     fetchData()
-    window.addEventListener('update-extensions', fetchData)
+    window.addEventListener('update-mainwindow', fetchData)
   }, [])
 
   const basicInformation: DescriptionsProps['items'] = [
@@ -57,44 +56,36 @@ function MapPreload({ mapData }: { mapData: Map }): JSX.Element {
       children: mapData.description
     }
   ]
-  const chessboard = window.electronAPI.generateChessboard(mapData)
+  const extensionItems = Object.keys(mapData.extensions).map((key) => {
+    const extension = extensions.find((v) => v.key === key)
+    const state = !extension
+      ? 2
+      : semver.satisfies(extension.version, mapData.extensions[key])
+        ? 0
+        : 1
+    return {
+      label: key,
+      children: (
+        <Tooltip title={['', `版本不符: 当前版本为${extension?.version}`, '扩展不存在'][state]}>
+          <span style={{ color: ['green', 'gold', 'red'][state] }}>{mapData.extensions[key]}</span>
+        </Tooltip>
+      )
+    }
+  })
   const otherInformation: CollapseProps['items'] = [
     {
       key: '1',
       label: '扩展列表',
-      children: (
-        <Descriptions
-          items={Object.keys(mapData.extensions).map((key) => {
-            const extension = extensions.find((v) => v.key === key)
-            const state = !extension
-              ? 2
-              : semver.satisfies(extension.version, mapData.extensions[key])
-                ? 0
-                : 1
-            return {
-              label: key,
-              children: (
-                <Tooltip
-                  title={['', `版本不符: 当前版本为${extension?.version}`, '扩展不存在'][state]}
-                >
-                  <span style={{ color: ['green', 'gold', 'red'][state] }}>
-                    {mapData.extensions[key]}
-                  </span>
-                </Tooltip>
-              )
-            }
-          })}
-        />
-      )
+      children: <Descriptions items={extensionItems} />
     },
     {
       key: '2',
       label: '棋盘预览',
       children: (
         <ChessboardComponent
-          chessboard={chessboard}
+          chessboard={window.electronAPI.generateChessboard()}
           intersection={mapData.chessboard.intersection}
-          getAvailableMoves={async () => []} // mapData上传至后端，建立GameData处理此函数
+          getAvailableMoves={async (pos) => window.electronAPI.getAvailableMoves(pos)}
         />
       )
     }
@@ -118,6 +109,7 @@ function StartPage(): JSX.Element {
   useEffect(() => {
     const fetchData = async (): Promise<void> => {
       setGameRunning(await window.electronAPI.getGameStatus())
+      setMapData(window.electronAPI.getMap())
     }
     fetchData()
   }, [])
@@ -140,24 +132,22 @@ function StartPage(): JSX.Element {
 
   window.electronAPI.onStopGame(() => setGameRunning(false))
 
-  const loadMapFile: UploadProps['beforeUpload'] = async (file) => {
-    const text = await file.text()
+  const chooseMap: ButtonProps['onClick'] = async () => {
     window.electronAPI
-      .analyzeMap(text)
-      .then((map: Map) => {
+      .chooseMap()
+      .then((map) => {
+        if (!map) return
         setMapData(map)
         setMapLoadError(false)
       })
       .catch(() => {
-        setMapData(undefined)
         setMapLoadError(true)
       })
-    return false
   }
 
   return (
     <Flex gap="middle" style={{ height: '100%' }}>
-      <Card style={{ width: 'min(30%,300px)' }}>
+      <Card style={{ width: 300 }}>
         <Space direction="vertical" style={{ display: 'flex' }}>
           <Button type="primary" disabled={isGameRunning} onClick={onStartGame} block>
             开始游戏
@@ -171,22 +161,26 @@ function StartPage(): JSX.Element {
             options={gamemodes}
           />
           <Divider />
-          <Upload
-            accept=".json"
-            maxCount={1}
-            beforeUpload={loadMapFile}
-            showUploadList={{ showRemoveIcon: false }}
-          >
-            <Button icon={<UploadOutlined />} block>
-              选择地图
-            </Button>
-          </Upload>
+          <Button icon={<SelectOutlined />} onClick={chooseMap} block>
+            选择地图
+          </Button>
+          {mapLoadError && (
+            <Alert
+              message="格式错误"
+              type="error"
+              showIcon
+              closable
+              afterClose={() => setMapLoadError(false)}
+            />
+          )}
         </Space>
       </Card>
       <Card title="地图预览" style={{ width: '100%', overflowY: 'auto' }}>
-        {!mapLoadError && !mapData && <Alert message="暂未选择地图" type="warning" showIcon />}
-        {mapLoadError && <Alert message="地图文件格式错误" type="error" showIcon />}
-        {mapData && <MapPreload mapData={mapData} />}
+        {mapData ? (
+          <MapPreload mapData={mapData} />
+        ) : (
+          <Alert message="暂未选择地图" type="warning" showIcon />
+        )}
       </Card>
     </Flex>
   )
