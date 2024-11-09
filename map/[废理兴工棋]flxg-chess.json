@@ -60,7 +60,7 @@
 			]
 		},
 		{
-			"id": 5,
+			"id": 7,
 			"name": "光原",
 			"camp": 1,
 			"moveRanges": [
@@ -71,7 +71,7 @@
 			]
 		},
 		{
-			"id": 6,
+			"id": 8,
 			"name": "密码",
 			"camp": 2,
 			"moveRanges": [
@@ -82,7 +82,7 @@
 			]
 		},
 		{
-			"id": 7,
+			"id": 5,
 			"name": "热力",
 			"camp": 1,
 			"moveRanges": [
@@ -92,7 +92,7 @@
 			]
 		},
 		{
-			"id": 8,
+			"id": 6,
 			"name": "协议",
 			"camp": 2,
 			"moveRanges": [

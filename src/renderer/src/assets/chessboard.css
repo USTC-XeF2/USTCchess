@@ -1,7 +1,3 @@
-.ant-collapse-content-box {
-    margin: 0 auto;
-}
-
 #board > div {
     display: flex;
     justify-content: center;
@@ -12,6 +8,7 @@
     justify-content: center;
     align-items: center;
     border: 1px solid black;
+    background-color: white;
     text-align: center;
 }
 
@@ -37,4 +34,4 @@
     position: absolute;
     top: 0;
     left: 0;
-  }
+}

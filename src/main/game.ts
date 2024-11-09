@@ -13,9 +13,6 @@ import { GameData } from '../utils/game'
 
 function createGameWindow(getInfo: () => [string, string]): BrowserWindow {
   const gameWindow = new BrowserWindow({
-    width: 360,
-    height: 600,
-    resizable: false,
     show: false,
     icon: join(__dirname, '../../resources/icon.png'),
     webPreferences: {

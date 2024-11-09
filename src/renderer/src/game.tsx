@@ -33,6 +33,10 @@ const localeOptions = {
   zhCN: zhCN
 }
 
+export function getColor(campID: number): string {
+  return campID == 1 ? 'red' : campID == 2 ? 'blue' : 'green'
+}
+
 function App(): JSX.Element {
   const [locale, setLocale] = useState<string>('')
   const [primaryColor, setPrimaryColor] = useState<string>('')
@@ -67,55 +71,75 @@ function App(): JSX.Element {
   window.electronAPI.on('game-end', (data) => {
     setGameResult(data as GameResult)
   })
+  const getAvailableMoves = async (pos: Position): Promise<Position[]> =>
+    (await window.electronAPI.contact('get-available-moves', pos)).data as Position[]
 
   if (!info) return <Spin tip="连接服务器中..." fullscreen delay={100} />
 
   const { camp, mapData } = info
+  const canMove = async (pos: Position): Promise<boolean> => {
+    if (gameState?.currentTurn !== camp) return false
+    const chess = gameState.chessboard[pos[0]][pos[1]]
+    if (chess?.camp && chess.camp !== camp) return false
+    return Boolean(await getAvailableMoves(pos))
+  }
+  const campStyle = { color: getColor(camp) }
+  const turnStyle = gameState ? { color: getColor(gameState.currentTurn) } : {}
   return (
     <ConfigProvider
       locale={localeOptions[locale]}
       theme={{ token: { colorPrimary: primaryColor } }}
     >
-      <span>本方阵营：{camp}</span>
-      {gameState?.currentTurn ? (
-        <span>当前回合：{gameState.currentTurn}</span>
-      ) : (
-        <Spin tip="等待游戏开始..." fullscreen delay={100} />
-      )}
+      <div id="title">
+        <span>
+          本方阵营：<span style={campStyle}>▇</span>
+        </span>
+        {gameState?.currentTurn ? (
+          <span>
+            当前回合：
+            <span style={turnStyle}>{gameState.currentTurn == camp ? '己方回合' : '对方回合'}</span>
+          </span>
+        ) : (
+          <Spin tip="等待游戏开始..." fullscreen delay={100} />
+        )}
+      </div>
       <ChessboardComponent
         chessboard={gameState?.chessboard || window.electronAPI.generateChessboard(mapData)}
         intersection={mapData.chessboard.intersection}
         reverse={camp === 2}
-        move={(from, to) => window.electronAPI.contact('move', { from, to })}
+        move={(from, to) => window.electronAPI.contact('move', [from, to])}
         getAvailableMoves={async (pos) =>
           (await window.electronAPI.contact('get-available-moves', pos)).data as Position[]
         }
+        canMove={canMove}
       />
-      {gameResult ? (
-        <Spin
-          indicator={
-            gameResult.winner ? (
-              gameResult.winner === camp ? (
-                <SmileOutlined />
+      <div>
+        {gameResult ? (
+          <Spin
+            indicator={
+              gameResult.winner ? (
+                gameResult.winner === camp ? (
+                  <SmileOutlined style={{ color: getColor(camp) }} />
+                ) : (
+                  <FrownOutlined style={{ color: getColor(camp) }} />
+                )
               ) : (
-                <FrownOutlined />
+                <MehOutlined style={{ color: getColor(camp) }} />
               )
-            ) : (
-              <MehOutlined />
-            )
-          }
-          tip={
-            <>
-              <div style={{ fontSize: 24 }}>
-                {gameResult.winner ? `${gameResult.winner === 1 ? '红' : '蓝'}方胜利` : '平局'}
-              </div>
-              <div style={{ fontSize: 16 }}>{gameResult.info}</div>
-            </>
-          }
-          size="large"
-          fullscreen
-        />
-      ) : null}
+            }
+            tip={
+              <>
+                <div style={{ fontSize: 24, color: getColor(gameResult.winner) }}>
+                  {gameResult.winner ? `${gameResult.winner === 1 ? '红' : '蓝'}方胜利` : '平局'}
+                </div>
+                <div style={{ fontSize: 16 }}>{gameResult.info}</div>
+              </>
+            }
+            size="large"
+            fullscreen
+          />
+        ) : null}
+      </div>
     </ConfigProvider>
   )
 }
@@ -125,3 +149,5 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <App />
   </React.StrictMode>
 )
+
+export default getColor
