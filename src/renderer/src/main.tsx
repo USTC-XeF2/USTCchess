@@ -60,16 +60,21 @@ function App(): JSX.Element {
       setIsDark(await window.electronAPI.getIsDark())
       setPrimaryColor(await window.electronAPI.getSetting('primary-color'))
     }
-
     reload()
+
     window.addEventListener('update-mainwindow', reload)
     window.electronAPI.on('update-theme', reload)
     window.electronAPI.on('window-maximize', (val) => setMaximized(val as boolean))
   }, [])
 
   useEffect(() => {
+    document.documentElement.style.setProperty('--bg-color', isDark ? '#141414' : '#FFF')
+    document.documentElement.style.setProperty(
+      '--bg-color-deviation',
+      isDark ? '#424242' : '#D9D9D9'
+    )
     document.documentElement.style.setProperty('--primary-color', primaryColor)
-  }, [primaryColor])
+  }, [isDark, primaryColor])
 
   const titleBar = {
     left: (

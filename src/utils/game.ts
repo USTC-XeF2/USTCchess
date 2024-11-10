@@ -29,25 +29,30 @@ export class GameData {
     const chess = API.getChess(this.chessboard, pos)
     if (!chess) return []
     const availableMoves: Position[] = []
-    // 由moveRanges定义的移动范围
-    for (const moveRange of chess.moveRanges) {
-      for (let step = 1; step <= (moveRange.maxstep || 1); step++) {
-        const newPos = API.getNewPos(pos, API.getDirectionOffset(moveRange.direction), step)
-        if (!API.isInChessboard(this.chessboard, newPos)) break
-        const targetChess = API.getChess(this.chessboard, newPos)
-        if (targetChess && !API.canEat(chess.camp, targetChess.camp)) break
-        availableMoves.push(newPos)
-      }
-    }
-    // 由扩展修改的移动范围
+    API.traverseMoveRanges(this.chessboard, pos, (newPos) => {
+      const targetChess = API.getChess(this.chessboard, newPos)
+      if (targetChess && !API.canEat(chess.camp, targetChess.camp)) return true
+      availableMoves.push(newPos)
+      return Boolean(targetChess)
+    })
     for (const ext of this.extensions) {
       try {
-        ext.onMove?.(this.chessboard, pos, availableMoves)
+        ext.modifyMove?.(this.chessboard, pos, availableMoves)
       } catch {
         // pass
       }
     }
     return availableMoves
+  }
+
+  afterMove(from: Position, to: Position): void {
+    for (const ext of this.extensions) {
+      try {
+        ext.afterMove?.(this.chessboard, from, to)
+      } catch {
+        //pass
+      }
+    }
   }
 
   onChessDeath(pos: Position, oldChess: Chess): void {

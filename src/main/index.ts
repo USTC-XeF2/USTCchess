@@ -30,7 +30,7 @@ import { checkOnClose, createClients } from './game'
 class PreloadGameData extends GameData {
   setMapData(mapData: Map): Map {
     this.mapData = mapData
-    this.chessboard = generateChessboard(mapData)[0]
+    this.chessboard = generateChessboard(mapData)
     return mapData
   }
   getMapData(): Map | undefined {
@@ -68,16 +68,6 @@ app.whenReady().then(() => {
     }
   }
 
-  const updateTheme = async (): Promise<boolean> => {
-    const theme = await getSetting('theme')
-    const isDark = theme === 'dark' || (theme === 'auto' && nativeTheme.shouldUseDarkColors)
-    mainWindow.setBackgroundColor(isDark ? '#141414' : '#FFF')
-    return isDark
-  }
-  updateTheme()
-  nativeTheme.on('updated', () => mainWindow.webContents.send('update-theme'))
-  ipcMain.handle('get-is-dark', updateTheme)
-
   const restoreMainWindow = (): void => {
     if (isGameRunning) {
       mainWindow.webContents.send('stop-game')
@@ -95,6 +85,14 @@ app.whenReady().then(() => {
       }
     })
   })
+
+  const getIsDark = async (): Promise<boolean> => {
+    const theme = await getSetting('theme')
+    return theme === 'dark' || (theme === 'auto' && nativeTheme.shouldUseDarkColors)
+  }
+  nativeTheme.on('updated', () =>
+    BrowserWindow.getAllWindows().forEach((w) => w.webContents.send('update-theme'))
+  )
 
   getLastLoaded().then((lastLoaded) => {
     if (lastLoaded['last-loaded-map']) {
@@ -149,7 +147,7 @@ app.whenReady().then(() => {
     return (_e, ...args): unknown => func(...args)
   }
 
-  ipcMain.on('control-window', ignoreFirstArg(controlWindow))
+  ipcMain.handle('get-is-dark', getIsDark)
   ipcMain.handle('get-game-status', () => isGameRunning)
   ipcMain.handle('start-game', ignoreFirstArg(startGame))
   ipcMain.handle('choose-map', chooseMap)
@@ -161,11 +159,12 @@ app.whenReady().then(() => {
   ipcMain.handle('get-setting', ignoreFirstArg(getSetting))
   ipcMain.handle('change-settings', ignoreFirstArg(changeSettings))
   ipcMain.handle('choose-extension-folder', chooseExtensionFolder)
+  ipcMain.on('control-window', ignoreFirstArg(controlWindow))
   ipcMain.on('get-map', (e) => {
     e.returnValue = gameData.getMapData()
   })
   ipcMain.on('generate-chessboard', (e, mapData?: Map) => {
-    e.returnValue = mapData ? generateChessboard(mapData)[0] : gameData.getChessboard()
+    e.returnValue = mapData ? generateChessboard(mapData) : gameData.getChessboard()
   })
   ipcMain.on('get-available-moves', (e, pos: Position) => {
     e.returnValue = gameData.getAvailableMoves(pos)

@@ -47,26 +47,26 @@ export function parsePosition(posString: PositionString): Position {
   return JSON.parse(posString)
 }
 
-export function createChess(card: Card, id: number): Chess {
-  return { ...JSON.parse(JSON.stringify(card)), chessID: id }
+export function createChess(card: Card): Chess {
+  const chess = JSON.parse(JSON.stringify(card))
+  if (!chess.attr) chess.attr = {}
+  return chess
 }
+
+const directionOffsets: Position[] = [
+  [-1, 0],
+  [-1, 1],
+  [0, 1],
+  [1, 1],
+  [1, 0],
+  [1, -1],
+  [0, -1],
+  [-1, -1]
+]
 
 export const API = {
   canEat(camp1: number, camp2: number): boolean {
     return camp1 !== 0 && camp2 !== 0 && camp1 !== camp2
-  },
-  getDirectionOffset(direction: number): Position {
-    const offsets: Position[] = [
-      [-1, 0],
-      [-1, 1],
-      [0, 1],
-      [1, 1],
-      [1, 0],
-      [1, -1],
-      [0, -1],
-      [-1, -1]
-    ]
-    return offsets[direction - 1]
   },
   getNewPos(pos: Position, offset: Position, multiplier: number = 1): Position {
     return [pos[0] + offset[0] * multiplier, pos[1] + offset[1] * multiplier]
@@ -82,6 +82,23 @@ export const API = {
     const oldChess = API.getChess(chessboard, pos)
     chessboard[pos[0]][pos[1]] = chess
     return oldChess
+  },
+  traverseMoveRanges(
+    chessboard: Chessboard,
+    pos: Position,
+    callback: (pos: Position) => boolean
+  ): void {
+    const chess = API.getChess(chessboard, pos)
+    if (!chess) return
+    for (const moveRange of chess.moveRanges) {
+      const directionOffset = directionOffsets[moveRange.direction - 1]
+      const maxStep = moveRange.maxstep === -1 ? Infinity : moveRange.maxstep || 1
+      for (let step = 1; step <= maxStep; step++) {
+        const newPos = API.getNewPos(pos, directionOffset, step)
+        if (!API.isInChessboard(chessboard, newPos)) break
+        if (callback(newPos)) break
+      }
+    }
   },
   moveChess(chessboard: Chessboard, from: Position, to: Position): Chess | null {
     return API.setChess(chessboard, to, API.setChess(chessboard, from, null))

@@ -1,4 +1,5 @@
 body {
     user-select: none;
     margin: 0;
+    background: var(--bg-color);
 }

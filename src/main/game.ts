@@ -3,7 +3,7 @@ import { join } from 'node:path'
 import { RawData, WebSocket } from 'ws'
 import { is } from '@electron-toolkit/utils'
 
-import { autoGetNeededExtensions, checkExtensions } from './main'
+import { autoGetNeededExtensions, checkExtensions, getSetting } from './main'
 
 import { Chessboard, Position } from '../types/chessboard'
 import { Map as GameMap } from '../types/map'
@@ -13,6 +13,10 @@ import { GameData } from '../utils/game'
 
 function createGameWindow(getInfo: () => [string, string]): BrowserWindow {
   const gameWindow = new BrowserWindow({
+    width: 480,
+    height: 720,
+    minWidth: 360,
+    minHeight: 600,
     show: false,
     icon: join(__dirname, '../../resources/icon.png'),
     webPreferences: {
@@ -22,32 +26,16 @@ function createGameWindow(getInfo: () => [string, string]): BrowserWindow {
 
   const menu = Menu.buildFromTemplate([
     {
-      label: '游戏',
-      submenu: [
-        {
-          label: '查看地图信息',
-          click: (): void => {
-            const [title, detail] = getInfo()
-            dialog.showMessageBox({
-              type: 'info',
-              title: '地图信息',
-              message: title,
-              detail: detail
-            })
-          }
-        },
-        { type: 'separator' },
-        {
-          label: '退出游戏',
-          click: (): void => {
-            gameWindow.close()
-          }
-        }
-      ]
-    },
-    {
-      label: '操作',
-      submenu: [{ label: '悔棋' }, { label: '撤销悔棋' }]
+      label: '查看地图信息',
+      click: (): void => {
+        const [title, detail] = getInfo()
+        dialog.showMessageBox({
+          type: 'info',
+          title: '地图信息',
+          message: title,
+          detail: detail
+        })
+      }
     }
   ])
 
@@ -128,9 +116,9 @@ class GameClient extends GameData {
           this.camp = camp
           this.mapData = mapData
           this.extensions = await autoGetNeededExtensions(this.mapData!.extensions)
-          if (!checkExtensions(this.extensions, this.mapData!.extensions)) {
-            this.close('地图所需扩展未启用或版本错误')
-          }
+          if (await getSetting('check-extensions'))
+            if (!checkExtensions(this.extensions, this.mapData!.extensions))
+              this.close('地图所需扩展未启用或版本错误')
           this.initialExtensions()
           this.window.webContents.send('connect-success')
           this.isConnectSuccess = true
@@ -176,8 +164,13 @@ class GameClient extends GameData {
       }
       case 'get-available-moves':
         return { status: 'success', data: this.getAvailableMoves(data as Position) }
-      case 'move':
-        return await this.contactToServer(type, data)
+      case 'move': {
+        const res = await this.contactToServer(type, data)
+        if (res.status === 'success') {
+          this.afterMove((data as { from: Position }).from, (data as { to: Position }).to)
+        }
+        return res
+      }
       default:
         return { status: 'error', data: 'Unknown type.' }
     }

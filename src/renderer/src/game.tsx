@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 
 import { FrownOutlined, MehOutlined, SmileOutlined } from '@ant-design/icons'
-import { ConfigProvider, Spin } from 'antd'
+import { Card, ConfigProvider, Flex, Spin, theme, Typography } from 'antd'
 import enUS from 'antd/locale/en_US'
 import zhCN from 'antd/locale/zh_CN'
 
@@ -33,18 +33,18 @@ const localeOptions = {
   zhCN: zhCN
 }
 
-export function getColor(campID: number): string {
-  return campID == 1 ? 'red' : campID == 2 ? 'blue' : 'green'
-}
+const getColor = (camp?: number): string => (camp == 1 ? 'red' : camp == 2 ? 'blue' : 'green')
 
 function App(): JSX.Element {
   const [locale, setLocale] = useState<string>('')
+  const [isDark, setIsDark] = useState<boolean>(false)
   const [primaryColor, setPrimaryColor] = useState<string>('')
   const [info, setInfo] = useState<Info>()
   const [gameState, setGameState] = useState<GameState>()
   const [gameResult, setGameResult] = useState<GameResult>()
   const reload = async (): Promise<void> => {
     setLocale(await window.electronAPI.getSetting('language'))
+    setIsDark(await window.electronAPI.getIsDark())
     setPrimaryColor(await window.electronAPI.getSetting('primary-color'))
   }
   const getInfo = (): Promise<void> =>
@@ -60,86 +60,97 @@ function App(): JSX.Element {
     reload()
     getInfo()
     getGameState()
+
+    window.electronAPI.on('update-theme', reload)
+    window.electronAPI.on('connect-success', () => {
+      getInfo()
+      getGameState()
+    })
+    window.electronAPI.on('game-start', getGameState)
+    window.electronAPI.on('change-turn', getGameState)
+    window.electronAPI.on('game-end', (data) => {
+      setGameResult(data as GameResult)
+    })
   }, [])
 
-  window.electronAPI.on('connect-success', () => {
-    getInfo()
-    getGameState()
-  })
-  window.electronAPI.on('game-start', getGameState)
-  window.electronAPI.on('change-turn', getGameState)
-  window.electronAPI.on('game-end', (data) => {
-    setGameResult(data as GameResult)
-  })
-  const getAvailableMoves = async (pos: Position): Promise<Position[]> =>
-    (await window.electronAPI.contact('get-available-moves', pos)).data as Position[]
+  useEffect(() => {
+    document.documentElement.style.setProperty('--bg-color', isDark ? '#141414' : '#FFF')
+    document.documentElement.style.setProperty('--primary-color', primaryColor)
+  }, [isDark, primaryColor])
 
   if (!info) return <Spin tip="连接服务器中..." fullscreen delay={100} />
 
   const { camp, mapData } = info
+  const getAvailableMoves = async (pos: Position): Promise<Position[]> =>
+    (await window.electronAPI.contact('get-available-moves', pos)).data as Position[]
   const canMove = async (pos: Position): Promise<boolean> => {
     if (gameState?.currentTurn !== camp) return false
     const chess = gameState.chessboard[pos[0]][pos[1]]
     if (chess?.camp && chess.camp !== camp) return false
-    return Boolean(await getAvailableMoves(pos))
+    return Boolean((await getAvailableMoves(pos)).length)
   }
   const campStyle = { color: getColor(camp) }
-  const turnStyle = gameState ? { color: getColor(gameState.currentTurn) } : {}
   return (
     <ConfigProvider
       locale={localeOptions[locale]}
-      theme={{ token: { colorPrimary: primaryColor } }}
+      theme={{
+        token: { colorPrimary: primaryColor },
+        algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm
+      }}
     >
-      <div id="title">
-        <span>
-          本方阵营：<span style={campStyle}>▇</span>
-        </span>
-        {gameState?.currentTurn ? (
-          <span>
-            当前回合：
-            <span style={turnStyle}>{gameState.currentTurn == camp ? '己方回合' : '对方回合'}</span>
-          </span>
-        ) : (
-          <Spin tip="等待游戏开始..." fullscreen delay={100} />
-        )}
-      </div>
+      <Card style={{ margin: 10 }}>
+        <Flex justify="space-evenly">
+          <Typography.Text>
+            本方阵营：<span style={campStyle}>▇</span>
+          </Typography.Text>
+          {gameState?.currentTurn ? (
+            <Typography.Text>
+              当前回合：
+              <span style={{ color: getColor(gameState?.currentTurn) }}>
+                {gameState.currentTurn == camp ? '己方回合' : '对方回合'}
+              </span>
+            </Typography.Text>
+          ) : (
+            <Spin tip="等待游戏开始..." fullscreen delay={100} />
+          )}
+        </Flex>
+      </Card>
       <ChessboardComponent
         chessboard={gameState?.chessboard || window.electronAPI.generateChessboard(mapData)}
+        maxWidth="90vw"
+        maxHeight="calc(90vh - 50px)"
         intersection={mapData.chessboard.intersection}
         reverse={camp === 2}
-        move={(from, to) => window.electronAPI.contact('move', [from, to])}
-        getAvailableMoves={async (pos) =>
-          (await window.electronAPI.contact('get-available-moves', pos)).data as Position[]
-        }
+        draggable
+        getAvailableMoves={getAvailableMoves}
         canMove={canMove}
+        move={(from, to) => window.electronAPI.contact('move', { from, to })}
       />
-      <div>
-        {gameResult ? (
-          <Spin
-            indicator={
-              gameResult.winner ? (
-                gameResult.winner === camp ? (
-                  <SmileOutlined style={{ color: getColor(camp) }} />
-                ) : (
-                  <FrownOutlined style={{ color: getColor(camp) }} />
-                )
+      {gameResult ? (
+        <Spin
+          indicator={
+            gameResult.winner ? (
+              gameResult.winner === camp ? (
+                <SmileOutlined style={campStyle} />
               ) : (
-                <MehOutlined style={{ color: getColor(camp) }} />
+                <FrownOutlined style={campStyle} />
               )
-            }
-            tip={
-              <>
-                <div style={{ fontSize: 24, color: getColor(gameResult.winner) }}>
-                  {gameResult.winner ? `${gameResult.winner === 1 ? '红' : '蓝'}方胜利` : '平局'}
-                </div>
-                <div style={{ fontSize: 16 }}>{gameResult.info}</div>
-              </>
-            }
-            size="large"
-            fullscreen
-          />
-        ) : null}
-      </div>
+            ) : (
+              <MehOutlined style={campStyle} />
+            )
+          }
+          tip={
+            <>
+              <div style={{ fontSize: 24, color: getColor(gameResult.winner) }}>
+                {gameResult.winner ? `${gameResult.winner === 1 ? '红' : '蓝'}方胜利` : '平局'}
+              </div>
+              <div style={{ fontSize: 16 }}>{gameResult.info}</div>
+            </>
+          }
+          size="large"
+          fullscreen
+        />
+      ) : null}
     </ConfigProvider>
   )
 }
@@ -149,5 +160,3 @@ ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
     <App />
   </React.StrictMode>
 )
-
-export default getColor

@@ -1,33 +1,23 @@
-#board > div {
+.chessboard-row {
     display: flex;
     justify-content: center;
+    margin: 0 auto;
 }
 
-#board > div > div {
-    display: inline-flex;
-    justify-content: center;
-    align-items: center;
-    border: 1px solid black;
-    background-color: white;
-    text-align: center;
-}
-
-#iboard > div {
+.chessboard-cell {
     display: flex;
-    justify-content: center;
-}
-
-#iboard > div > div {
-    display: inline-flex;
     justify-content: center;
     align-items: center;
     text-align: center;
-    opacity: 1;
+    background-color: rgba(255, 255, 255, 0.1);
 }
 
-#iboard
-{
-    background-color: rgba(255, 255, 255, 0);
+.chessboard-cell:hover {
+    background-color: rgba(0, 0, 0, 0.1);
+}
+
+#board .chessboard-cell {
+    outline: 1px solid black;
 }
 
 #iboard > canvas {

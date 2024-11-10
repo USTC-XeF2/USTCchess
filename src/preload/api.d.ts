@@ -9,11 +9,10 @@ import { api } from './index'
 
 interface API {
   on: (type: string, callback: (data?: unknown) => void) => void
-  getIsDark: () => Promise<boolean>
   controlWindow: (action: string) => void
+  getIsDark: () => Promise<boolean>
   getGameStatus: () => Promise<boolean>
   startGame: (gamemode: string, mapData: Map) => Promise<string>
-  onStopGame: (callback: () => void) => IpcRenderer
   getMap: () => Map | undefined
   chooseMap: () => Promise<Map | null>
   generateChessboard: (mapData?: Map) => Chessboard

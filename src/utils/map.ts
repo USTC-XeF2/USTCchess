@@ -50,18 +50,17 @@ export function getInfo(mapData: Map): [string, string] {
   ]
 }
 
-export function generateChessboard(mapData: Map): [Chessboard, number] {
+export function generateChessboard(mapData: Map): Chessboard {
   const setting = mapData.chessboard
   const chessboard = Array.from({ length: setting.height }, () =>
     Array.from({ length: setting.width }, () => null)
   )
-  let totalChess = 0
   for (const posString in mapData.chessboard.init) {
     if (!isPositionString(posString)) continue
     const id = mapData.chessboard.init[posString]
     const card = mapData.cards.filter((card) => card.id === id)
     if (card.length !== 1) continue
-    API.setChess(chessboard, parsePosition(posString), createChess(card[0], totalChess++))
+    API.setChess(chessboard, parsePosition(posString), createChess(card[0]))
   }
-  return [chessboard, totalChess]
+  return chessboard
 }

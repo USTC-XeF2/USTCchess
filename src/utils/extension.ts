@@ -8,7 +8,8 @@ export function isExtension(obj): obj is Extension {
   if (typeof obj.author !== 'string') return false
   if (!semver.valid(obj.version)) return false
   if (obj.init && typeof obj.init !== 'function') return false
-  if (obj.onMove && typeof obj.onMove !== 'function') return false
+  if (obj.modifyMove && typeof obj.modifyMove !== 'function') return false
+  if (obj.afterMove && typeof obj.afterMove !== 'function') return false
   if (obj.onDeath && typeof obj.onDeath !== 'function') return false
   return true
 }

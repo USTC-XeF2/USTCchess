@@ -1,15 +1,1 @@
 @import './base.css';
-
-#title{
-    display: flex;
-    border: 1px solid black;
-    height: 50px;
-    margin-bottom: 10px;
-}
-
-#title > span{
-    line-height: 50px;
-    text-align: center;
-    border: 1px solid black;
-    width: 150px;
-}

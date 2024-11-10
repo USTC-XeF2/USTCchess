@@ -36,16 +36,15 @@ export class GameServer extends GameData {
   private wss: WebSocketServer
   private playerList: Map<WebSocket, number> = new Map()
   // Game
-  private ChessID: number
   private currentTurn: number = 0
   private isGameEnd: boolean = false
   constructor(mapData: GameMap, extensions: Extension[], port: number, openToLAN: boolean = false) {
     super()
     this.mapData = mapData
     this.extensions = extensions
-    ;[this.chessboard, this.ChessID] = generateChessboard(mapData)
+    this.chessboard = generateChessboard(mapData)
     this.wss = new WebSocketServer({ port, host: openToLAN ? '0.0.0.0' : 'localhost' })
-    this.initialExtensions((card) => createChess(card, this.ChessID++))
+    this.initialExtensions(createChess)
     this.wss.on('connection', this.onConnection.bind(this))
   }
 
@@ -95,14 +94,18 @@ export class GameServer extends GameData {
       case 'move': {
         if (this.playerList.get(ws) !== this.currentTurn) {
           this.send(ws, 'error', 'Not your turn', data.id)
-          return
+          break
         }
-        const [from, to] = data.data as Position[]
-        const res = this.move(from, to)
-        if (res) {
-          this.currentTurn = 3 - this.currentTurn
-          this.sendAll('change-turn')
-          this.send(ws, 'success', undefined, data.id)
+        try {
+          const { from, to } = data.data as { from: Position; to: Position }
+          const res = this.move(from, to)
+          if (res) {
+            this.currentTurn = 3 - this.currentTurn
+            this.sendAll('change-turn')
+            this.send(ws, 'success', undefined, data.id)
+          }
+        } catch {
+          this.send(ws, 'error', 'Invalid move', data.id)
         }
         break
       }
@@ -128,6 +131,7 @@ export class GameServer extends GameData {
     if (!availableMoves.some((pos) => pos[0] === to[0] && pos[1] === to[1])) return false
     const oldChess = API.moveChess(this.chessboard, from, to)
     if (oldChess) this.onChessDeath(to, oldChess)
+    this.afterMove(from, to)
     return true
   }
 

@@ -1,155 +1,125 @@
 import '../assets/chessboard.css'
 
-//import React, { useEffect, useState } from 'react'
+import { CSSProperties, useState } from 'react'
+
 import { Chessboard, Position } from 'src/types/chessboard'
-import getColor from '../game'
-import { MouseEventHandler } from 'react'
 
 interface ChessboardComponentProps {
   chessboard: Chessboard
-  intersection: boolean // 交叉点模式
-  reverse?: boolean // 反方视角
+  maxWidth: CSSProperties['maxWidth']
+  maxHeight: CSSProperties['maxHeight']
+  intersection: boolean
+  reverse?: boolean
+  draggable?: boolean
   getAvailableMoves: (pos: Position) => Promise<Position[]>
   canMove?: (pos: Position) => Promise<boolean>
   move?: (from: Position, to: Position) => void
 }
 
-function colorCell(x: number, y: number, targetColor: string, underLine: boolean = false): void {
-  const targetCell = document.getElementById(`cell-${x}-${y}`)
-  if (targetCell) {
-    targetCell.style.textDecoration = ''
-    targetCell.style.backgroundColor = targetColor
-    if (underLine) targetCell.style.textDecoration = 'underline'
-  }
-}
-
-function ableCell(x: number, y: number, mod: boolean = true): boolean {
-  const targetCell = document.getElementById(`cell-${x}-${y}`)
-  if (!targetCell) return false
-  if (targetCell.style.backgroundColor == 'white') return false
-  if (mod && targetCell.style.textDecoration == 'underline') return false
-  if (!mod && targetCell.style.textDecoration != 'underline') return false
-  return true
-}
+const isEqualPosition = (pos1: Position, pos2: Position): boolean =>
+  pos1[0] === pos2[0] && pos1[1] === pos2[1]
 
 function ChessboardComponent({
   chessboard,
+  maxWidth,
+  maxHeight,
   intersection,
   reverse = false,
+  draggable = false,
   getAvailableMoves,
-  canMove = undefined,
+  canMove,
   move
 }: ChessboardComponentProps): JSX.Element {
-  const cellSize = 50
-  /*let [originChoose, setOriginChoose] = useState<Position>()
-  const getOriginChoose = (): Promise<void> =>
-    window.electronAPI.contact('get-origin').then((res) => {
-      if (res.status === 'success') setOriginChoose(res.data as Position)
-    })
+  const [selectedPosition, setSelectedPosition] = useState<Position>()
+  const [draggingPiece, setDraggingPosition] = useState<Position>()
+  const [availableMoves, setAvailableMoves] = useState<Position[]>([])
 
-  useEffect(() => {
-    getOriginChoose()
-  }, [])*/
+  const isInAvailableMoves = (pos: Position): boolean => {
+    return availableMoves.some((p) => isEqualPosition(p, pos))
+  }
+
+  const enterCell = async (pos: Position): Promise<void> => {
+    if (selectedPosition) return
+    setAvailableMoves(await getAvailableMoves(pos))
+  }
+  const leaveCell = (): void => {
+    if (selectedPosition) return
+    setAvailableMoves([])
+  }
+  const chooseCell = async (pos: Position): Promise<void> => {
+    if (selectedPosition) {
+      if (isInAvailableMoves(pos)) move?.(selectedPosition, pos)
+      setSelectedPosition(undefined)
+      setAvailableMoves([])
+    } else if (await canMove?.(pos)) {
+      setSelectedPosition(pos)
+      setAvailableMoves(await getAvailableMoves(pos))
+    }
+  }
+  const onDragStart = async (e, pos: Position): Promise<void> => {
+    if (selectedPosition || !(await canMove?.(pos))) return e.preventDefault()
+    setAvailableMoves(await getAvailableMoves(pos))
+    setDraggingPosition(pos)
+  }
+  const onDrop = (pos: Position): void => {
+    if (draggingPiece && isInAvailableMoves(pos)) {
+      move?.(draggingPiece, pos)
+      setSelectedPosition(undefined)
+      setDraggingPosition(undefined)
+      setAvailableMoves([])
+    }
+  }
+
   const width = chessboard[0].length
   const height = chessboard.length
-  function findOrigin(): Position | null {
-    for (let i = 0; i < height; i++)
-      for (let j = 0; j < width; j++) if (ableCell(i, j, false)) return [i, j]
-    return null
-  }
-  function cleanBoard(): void {
-    for (let i = 0; i < height; i++) for (let j = 0; j < width; j++) colorCell(i, j, 'white')
-  }
-  function chooseCell(x: number, y: number): MouseEventHandler<HTMLDivElement> {
-    return async () => {
-      if (ableCell(x, y) && move) {
-        const originCell = findOrigin()
-        if (!originCell) return
-        const targetCell: Position = [x, y]
-        move(originCell, targetCell)
-        console.log('A move from', originCell, 'to', targetCell)
-        cleanBoard()
-        return
-      }
-      if (ableCell(x, y, false)) {
-        cleanBoard()
-        return
-      }
-      cleanBoard()
-      if (canMove ? await canMove([x, y]) : false) {
-        colorCell(x, y, 'yellow', true)
-        const ableMoves = await getAvailableMoves([x, y])
-        for (let i = 0; i < ableMoves.length; i++)
-          colorCell(
-            ableMoves[i][0],
-            ableMoves[i][1],
-            chessboard[ableMoves[i][0]][ableMoves[i][1]] ? 'orange' : 'greenyellow'
-          )
-      }
+  const cellSize = `calc(min(${maxWidth} / ${width}, ${maxHeight} / ${height}))`
+  const getChessboardCell = (pos: Position): JSX.Element => {
+    const chess = chessboard[pos[0]][pos[1]]
+    const cellDraggable = draggable && Boolean(chess)
+    const cellStyle: React.CSSProperties = {
+      width: cellSize,
+      height: cellSize,
+      color: chess ? (chess.camp == 1 ? 'red' : chess.camp == 2 ? 'blue' : 'green') : 'black',
+      cursor: cellDraggable ? 'grab' : 'pointer',
+      ...(selectedPosition && isEqualPosition(selectedPosition, pos)
+        ? { backgroundColor: 'yellow' }
+        : {}),
+      ...(isInAvailableMoves(pos) ? { backgroundColor: chess ? 'pink' : 'greenyellow' } : {})
     }
+    return (
+      <div
+        style={cellStyle}
+        className="chessboard-cell"
+        key={`cell-${pos[0]}-${pos[1]}`}
+        onMouseEnter={() => enterCell(pos)}
+        onMouseLeave={leaveCell}
+        onClick={() => chooseCell(pos)}
+        draggable={cellDraggable}
+        onDragStart={(e) => onDragStart(e, pos)}
+        onDragOver={(e) => e.preventDefault()}
+        onDrop={() => onDrop(pos)}
+      >
+        {chess?.name}
+      </div>
+    )
   }
-  function renderRows(): JSX.Element[] {
-    const rowsJSX: JSX.Element[] = []
-    for (let i = 0; i < height; i++) {
-      const cellsJSX: JSX.Element[] = []
-      for (let j = 0; j < width; j++) {
-        const rvsi = reverse ? height - i - 1 : i,
-          rvsj = reverse ? width - j - 1 : j
-        const chess = chessboard[rvsi][rvsj]
-        const cellStyle: React.CSSProperties = {
-          width: cellSize,
-          height: cellSize
-        }
-        cellStyle.color = chess ? getColor(chess.camp) : 'black'
-        cellsJSX.push(
-          <div style={cellStyle} id={`cell-${rvsi}-${rvsj}`} onClick={chooseCell(rvsi, rvsj)}>
-            {chess?.name}
+
+  return (
+    <div id={intersection ? 'iboard' : 'board'}>
+      {Array.from({ length: height }, (_, i) => {
+        const rvsi = reverse ? height - i - 1 : i
+        return (
+          <div className="chessboard-row" key={`row-${i}`}>
+            {Array.from({ length: width }, (_, j) => {
+              const rvsj = reverse ? width - j - 1 : j
+              const pos: Position = [rvsi, rvsj]
+              return getChessboardCell(pos)
+            })}
           </div>
         )
-      }
-      rowsJSX.push(<div id={`row-${i}`}>{cellsJSX}</div>)
-    }
-    if (!findOrigin()) {
-      for (let i = 0; i < height; i++)
-        for (let j = 0; j < width; j++) {
-          const nowCell = document.getElementById(`cell-${i}-${j}`)
-          if (nowCell) {
-            nowCell.addEventListener('mouseenter', async () => {
-              if (await findOrigin()) return
-              const effectedCells = await getAvailableMoves([i, j])
-              colorCell(i, j, 'white', true)
-              for (let k = 0; k < effectedCells.length; k++)
-                colorCell(
-                  effectedCells[k][0],
-                  effectedCells[k][1],
-                  chessboard[effectedCells[k][0]][effectedCells[k][1]] ? 'orange' : 'greenyellow'
-                )
-            })
-            nowCell.addEventListener('mouseleave', async () => {
-              if (await findOrigin()) return
-              const effectedCells = await getAvailableMoves([i, j])
-              colorCell(i, j, 'white')
-              for (let k = 0; k < effectedCells.length; k++)
-                colorCell(effectedCells[k][0], effectedCells[k][1], 'white')
-            })
-          }
-        }
-    }
-    if (!intersection) {
-      rowsJSX.push(
-        <canvas
-          id="background"
-          width={`${width * cellSize}`}
-          height={`${height * cellSize}`}
-        ></canvas>
-      )
-      rowsJSX.push(<script></script>)
-    }
-    return rowsJSX
-  }
-  if (intersection) {
-    return <div id="board">{renderRows()}</div>
-  } else return <div id="iboard">{renderRows()}</div>
+      })}
+    </div>
+  )
 }
 
 export default ChessboardComponent

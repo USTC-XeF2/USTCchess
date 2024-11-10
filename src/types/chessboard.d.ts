@@ -12,6 +12,7 @@ export interface Card {
   camp: number
   moveRanges: MoveRange[]
   isChief?: boolean
+  attr?: object
 }
 
 export type Position = [number, number]
@@ -19,7 +20,7 @@ export type Position = [number, number]
 export type PositionString = `[${number},${number}]`
 
 export interface Chess extends Card {
-  chessID: number
+  attr: object
 }
 
 export type Chessboard = (Chess | null)[][]

@@ -4,11 +4,10 @@ import type { API } from './api'
 
 const api: API = {
   on: (type, callback) => ipcRenderer.on(type, (_e, data?) => callback(data)),
-  getIsDark: () => ipcRenderer.invoke('get-is-dark'),
   controlWindow: (action) => ipcRenderer.send('control-window', action),
+  getIsDark: () => ipcRenderer.invoke('get-is-dark'),
   getGameStatus: () => ipcRenderer.invoke('get-game-status'),
   startGame: (gamemode, mapData) => ipcRenderer.invoke('start-game', gamemode, mapData),
-  onStopGame: (callback) => ipcRenderer.on('stop-game', callback),
   getMap: () => ipcRenderer.sendSync('get-map'),
   chooseMap: () => ipcRenderer.invoke('choose-map'),
   generateChessboard: (mapData = undefined) => ipcRenderer.sendSync('generate-chessboard', mapData),

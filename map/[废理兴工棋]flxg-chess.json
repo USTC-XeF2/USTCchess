@@ -46,7 +46,16 @@
 				{ "direction": 3 },
 				{ "direction": 5 },
 				{ "direction": 7 }
-			]
+			],
+			"attr": {
+				"promoteConditions": "row<=1",
+				"promotedMoveRanges": [
+					{ "direction": 1 },
+					{ "direction": 3, "maxstep": -1 },
+					{ "direction": 5 },
+					{ "direction": 7, "maxstep": -1 }
+				]
+			}
 		},
 		{
 			"id": 4,
@@ -57,7 +66,58 @@
 				{ "direction": 3 },
 				{ "direction": 5 },
 				{ "direction": 7 }
-			]
+			],
+			"attr": {
+				"promoteConditions": "row>=7",
+				"promotedMoveRanges": [
+					{ "direction": 1 },
+					{ "direction": 3, "maxstep": -1 },
+					{ "direction": 5 },
+					{ "direction": 7, "maxstep": -1 }
+				]
+			}
+		},
+		{
+			"id": 5,
+			"name": "热力",
+			"camp": 1,
+			"moveRanges": [
+				{ "direction": 2 },
+				{ "direction": 5 },
+				{ "direction": 8 }
+			],
+			"attr": {
+				"promoteConditions": "row<=1",
+				"promotedMoveRanges": [
+					{ "direction": 2 },
+					{ "direction": 3 },
+					{ "direction": 4 },
+					{ "direction": 6 },
+					{ "direction": 7 },
+					{ "direction": 8 }
+				]
+			}
+		},
+		{
+			"id": 6,
+			"name": "协议",
+			"camp": 2,
+			"moveRanges": [
+				{ "direction": 1 },
+				{ "direction": 4 },
+				{ "direction": 6 }
+			],
+			"attr": {
+				"promoteConditions": "row>=7",
+				"promotedMoveRanges": [
+					{ "direction": 2 },
+					{ "direction": 3 },
+					{ "direction": 4 },
+					{ "direction": 6 },
+					{ "direction": 7 },
+					{ "direction": 8 }
+				]
+			}
 		},
 		{
 			"id": 7,
@@ -68,7 +128,18 @@
 				{ "direction": 4 },
 				{ "direction": 6 },
 				{ "direction": 8 }
-			]
+			],
+			"attr": {
+				"promoteConditions": "row<=1",
+				"promotedMoveRanges": [
+					{ "direction": 1 },
+					{ "direction": 2 },
+					{ "direction": 4 },
+					{ "direction": 5 },
+					{ "direction": 6 },
+					{ "direction": 8 }
+				]
+			}
 		},
 		{
 			"id": 8,
@@ -79,27 +150,18 @@
 				{ "direction": 4 },
 				{ "direction": 6 },
 				{ "direction": 8 }
-			]
-		},
-		{
-			"id": 5,
-			"name": "热力",
-			"camp": 1,
-			"moveRanges": [
-				{ "direction": 2 },
-				{ "direction": 5 },
-				{ "direction": 8 }
-			]
-		},
-		{
-			"id": 6,
-			"name": "协议",
-			"camp": 2,
-			"moveRanges": [
-				{ "direction": 1 },
-				{ "direction": 4 },
-				{ "direction": 6 }
-			]
+			],
+			"attr": {
+				"promoteConditions": "row>=7",
+				"promotedMoveRanges": [
+					{ "direction": 1 },
+					{ "direction": 2 },
+					{ "direction": 4 },
+					{ "direction": 5 },
+					{ "direction": 6 },
+					{ "direction": 8 }
+				]
+			}
 		},
 		{
 			"id": 9,
@@ -111,7 +173,18 @@
 				{ "direction": 3 },
 				{ "direction": 7 },
 				{ "direction": 8 }
-			]
+			],
+			"attr": {
+				"promoteConditions": "row<=1",
+				"promotedMoveRanges": [
+					{ "direction": 1 },
+					{ "direction": 2 },
+					{ "direction": 3 },
+					{ "direction": 5, "maxstep": -1 },
+					{ "direction": 7 },
+					{ "direction": 8 }
+				]
+			}
 		},
 		{
 			"id": 10,
@@ -123,7 +196,18 @@
 				{ "direction": 5 },
 				{ "direction": 6 },
 				{ "direction": 7 }
-			]
+			],
+			"attr": {
+				"promoteConditions": "row>=7",
+				"promotedMoveRanges": [
+					{ "direction": 1, "maxstep": -1 },
+					{ "direction": 3 },
+					{ "direction": 4 },
+					{ "direction": 5 },
+					{ "direction": 6 },
+					{ "direction": 7 }
+				]
+			}
 		},
 		{
 			"id": 11,
@@ -132,7 +216,14 @@
 			"moveRanges": [
 				{ "direction": 2 },
 				{ "direction": 8 }
-			]
+			],
+			"attr": {
+				"promoteConditions": "row==0",
+				"promotedMoveRanges": [
+					{ "direction": 1, "maxstep": -1 },
+					{ "direction": 5, "maxstep": -1 }
+				]
+			}
 		},
 		{
 			"id": 12,
@@ -141,7 +232,14 @@
 			"moveRanges": [
 				{ "direction": 4 },
 				{ "direction": 6 }
-			]
+			],
+			"attr": {
+				"promoteConditions": "row==8",
+				"promotedMoveRanges": [
+					{ "direction": 1, "maxstep": -1 },
+					{ "direction": 5, "maxstep": -1 }
+				]
+			}
 		},
 		{
 			"id": 99,
@@ -168,7 +266,7 @@
 	"chessboard": {
 		"width": 7,
 		"height": 9,
-		"intersection": true,
+		"intersection": false,
 		"init": {
 			"[0, 0]": 8,
 			"[0, 1]": 6,
@@ -206,6 +304,7 @@
 		}
 	},
 	"extensions": {
-		"flxg-chess": ">=1.0.0"
+		"promote": "<2",
+		"flxg-chess": "1.0.0"
 	}
 }

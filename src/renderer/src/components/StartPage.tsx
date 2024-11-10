@@ -66,7 +66,7 @@ function MapPreload({ mapData }: { mapData: Map }): JSX.Element {
     return {
       label: key,
       children: (
-        <Tooltip title={['', `版本不符: 当前版本为${extension?.version}`, '扩展不存在'][state]}>
+        <Tooltip title={state === 1 ? `当前版本为${extension?.version}` : ''}>
           <span style={{ color: ['green', 'gold', 'red'][state] }}>{mapData.extensions[key]}</span>
         </Tooltip>
       )
@@ -84,6 +84,8 @@ function MapPreload({ mapData }: { mapData: Map }): JSX.Element {
       children: (
         <ChessboardComponent
           chessboard={window.electronAPI.generateChessboard()}
+          maxWidth="calc(30vw + 100px)"
+          maxHeight="calc(80vh - 50px)"
           intersection={mapData.chessboard.intersection}
           getAvailableMoves={async (pos) => window.electronAPI.getAvailableMoves(pos)}
         />
@@ -112,6 +114,8 @@ function StartPage(): JSX.Element {
       setMapData(window.electronAPI.getMap())
     }
     fetchData()
+
+    window.electronAPI.on('stop-game', () => setGameRunning(false))
   }, [])
 
   const onStartGame: ButtonProps['onClick'] = async () => {
@@ -129,8 +133,6 @@ function StartPage(): JSX.Element {
       setGameRunning(true)
     }
   }
-
-  window.electronAPI.onStopGame(() => setGameRunning(false))
 
   const chooseMap: ButtonProps['onClick'] = async () => {
     window.electronAPI
