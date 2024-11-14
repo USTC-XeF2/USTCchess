@@ -3,6 +3,7 @@ import { electronApp, optimizer } from '@electron-toolkit/utils'
 
 import { Chessboard, Position } from '../types/chessboard'
 import { Map } from '../types/map'
+import { Extension } from '../types/extension'
 import { generateChessboard } from '../utils/map'
 import { GameData } from '../utils/game'
 
@@ -28,13 +29,19 @@ import { GameServer, getUnusedPort } from './game-server'
 import { checkOnClose, createClients } from './game'
 
 class PreloadGameData extends GameData {
-  setMapData(mapData: Map): Map {
+  isAllExtLoaded: boolean = false
+  async setMapData(mapData: Map): Promise<Map> {
     this.mapData = mapData
+    this.loadExtensions(await autoGetNeededExtensions(mapData.extensions))
+    this.isAllExtLoaded = checkExtensions(this.extensions, mapData.extensions)
     this.chessboard = generateChessboard(mapData)
     return mapData
   }
   getMapData(): Map | undefined {
     return this.mapData || undefined
+  }
+  getExtensions(): Extension[] {
+    return this.extensions
   }
   getChessboard(): Chessboard {
     return this.chessboard
@@ -94,13 +101,19 @@ app.whenReady().then(() => {
     BrowserWindow.getAllWindows().forEach((w) => w.webContents.send('update-theme'))
   )
 
-  getLastLoaded().then((lastLoaded) => {
-    if (lastLoaded['last-loaded-map']) {
-      analyzeMap(lastLoaded['last-loaded-map']).then((mapData) => gameData.setMapData(mapData))
+  const getMapData = async (reload: boolean): Promise<Map | undefined> => {
+    if (reload) {
+      const lastLoadedMap = (await getLastLoaded())['last-loaded-map']
+      if (lastLoadedMap) {
+        const mapData = await analyzeMap(lastLoadedMap)
+        return gameData.setMapData(mapData)
+      }
     }
-  })
+    return gameData.getMapData()
+  }
+  getMapData(true)
   const chooseMap = async (): Promise<Map | null> => {
-    const { canceled, filePaths } = await dialog.showOpenDialog({
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
       title: '选择地图',
       defaultPath: (await getLastLoaded())['last-loaded-map'],
       buttonLabel: '选择',
@@ -116,18 +129,16 @@ app.whenReady().then(() => {
     return gameData.setMapData(mapData)
   }
 
-  const startGame = async (gamemode: string, mapData: Map): Promise<string> => {
+  const startGame = async (gamemode: string): Promise<string> => {
     if (isGameRunning) return '游戏正在运行中'
     if (gamemode === 'local-mode') {
       try {
-        const extensions = await autoGetNeededExtensions(mapData.extensions)
-        if (
-          (await getSetting('check-extensions')) &&
-          !checkExtensions(extensions, mapData.extensions)
-        )
+        const mapData = gameData.getMapData()
+        if (!mapData) return '未选择地图文件'
+        if ((await getSetting('check-extensions')) && !gameData.isAllExtLoaded)
           return '地图所需扩展未启用或版本错误'
         const port = await getUnusedPort()
-        const server = new GameServer(mapData, extensions, port)
+        const server = new GameServer(mapData, gameData.getExtensions(), port)
         createClients(`localhost:${port}`, 2, mapData.name + '-本地模式', () => {
           server.close()
           restoreMainWindow()
@@ -150,19 +161,17 @@ app.whenReady().then(() => {
   ipcMain.handle('get-is-dark', getIsDark)
   ipcMain.handle('get-game-status', () => isGameRunning)
   ipcMain.handle('start-game', ignoreFirstArg(startGame))
+  ipcMain.handle('get-map', ignoreFirstArg(getMapData))
   ipcMain.handle('choose-map', chooseMap)
   ipcMain.handle('get-extensions-info', getExtensionsInfo)
   ipcMain.handle('get-enabled-extensions', getEnabledExtensions)
   ipcMain.handle('set-enabled-extensions', ignoreFirstArg(setEnabledExtensions))
-  ipcMain.handle('import-extensions', importExtensions)
+  ipcMain.handle('import-extensions', () => importExtensions(mainWindow))
   ipcMain.handle('get-settings', getSettings)
   ipcMain.handle('get-setting', ignoreFirstArg(getSetting))
   ipcMain.handle('change-settings', ignoreFirstArg(changeSettings))
-  ipcMain.handle('choose-extension-folder', chooseExtensionFolder)
+  ipcMain.handle('choose-extension-folder', () => chooseExtensionFolder(mainWindow))
   ipcMain.on('control-window', ignoreFirstArg(controlWindow))
-  ipcMain.on('get-map', (e) => {
-    e.returnValue = gameData.getMapData()
-  })
   ipcMain.on('generate-chessboard', (e, mapData?: Map) => {
     e.returnValue = mapData ? generateChessboard(mapData) : gameData.getChessboard()
   })

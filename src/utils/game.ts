@@ -1,4 +1,4 @@
-import { Card, Chess, Chessboard, Position } from '../types/chessboard'
+import { Chess, Chessboard, Position } from '../types/chessboard'
 import { Map } from '../types/map'
 import { Extension } from '../types/extension'
 import { API } from './chessboard'
@@ -7,15 +7,14 @@ export class GameData {
   protected mapData: Map | null = null
   protected extensions: Extension[] = []
   protected chessboard: Chessboard = []
-  initialExtensions(createChess: ((card: Card) => Chess) | null = null): void {
+  loadExtensions(extensions: Extension[]): void {
     const extensionAPI = {
       ...API,
       cards: this.mapData?.cards,
       onChessDeath: this.onChessDeath.bind(this),
-      createChess: createChess,
       endGame: this.endGame.bind(this)
     }
-    for (const ext of this.extensions) {
+    for (const ext of extensions) {
       ext.API = extensionAPI
       try {
         ext.init?.()
@@ -23,6 +22,7 @@ export class GameData {
         // pass
       }
     }
+    this.extensions = extensions
   }
 
   getAvailableMoves(pos: Position): Position[] {
@@ -41,6 +41,11 @@ export class GameData {
       } catch {
         // pass
       }
+    }
+    const set = new Set(availableMoves.map((p) => JSON.stringify(p)))
+    availableMoves.length = 0
+    for (const p of set) {
+      availableMoves.push(JSON.parse(p))
     }
     return availableMoves
   }

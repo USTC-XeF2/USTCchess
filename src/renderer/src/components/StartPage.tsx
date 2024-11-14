@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import semver from 'semver'
-import { SelectOutlined } from '@ant-design/icons'
+import { ReloadOutlined, SelectOutlined } from '@ant-design/icons'
 import type { ButtonProps, CollapseProps, DescriptionsProps, SelectProps } from 'antd'
 import {
   Alert,
@@ -111,7 +111,7 @@ function StartPage(): JSX.Element {
   useEffect(() => {
     const fetchData = async (): Promise<void> => {
       setGameRunning(await window.electronAPI.getGameStatus())
-      setMapData(window.electronAPI.getMap())
+      setMapData(await window.electronAPI.getMap())
     }
     fetchData()
 
@@ -126,7 +126,7 @@ function StartPage(): JSX.Element {
       message.info('未选择地图文件')
       return
     }
-    const error = await window.electronAPI.startGame(currentGamemode, mapData)
+    const error = await window.electronAPI.startGame(currentGamemode)
     if (error) {
       message.error(error)
     } else {
@@ -177,7 +177,18 @@ function StartPage(): JSX.Element {
           )}
         </Space>
       </Card>
-      <Card title="地图预览" style={{ width: '100%', overflowY: 'auto' }}>
+      <Card
+        title="地图预览"
+        extra={
+          <Button
+            icon={<ReloadOutlined />}
+            onClick={async () => setMapData(await window.electronAPI.getMap(true))}
+          >
+            重新加载
+          </Button>
+        }
+        style={{ width: '100%', overflowY: 'auto' }}
+      >
         {mapData ? (
           <MapPreload mapData={mapData} />
         ) : (

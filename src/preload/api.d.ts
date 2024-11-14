@@ -12,8 +12,8 @@ interface API {
   controlWindow: (action: string) => void
   getIsDark: () => Promise<boolean>
   getGameStatus: () => Promise<boolean>
-  startGame: (gamemode: string, mapData: Map) => Promise<string>
-  getMap: () => Map | undefined
+  startGame: (gamemode: string) => Promise<string>
+  getMap: (reload?: boolean) => Promise<Map | undefined>
   chooseMap: () => Promise<Map | null>
   generateChessboard: (mapData?: Map) => Chessboard
   getAvailableMoves: (pos: Position) => Position[]

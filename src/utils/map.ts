@@ -2,14 +2,7 @@ import semver from 'semver'
 
 import type { Chessboard } from '../types/chessboard'
 import type { Map, VersionRanges } from '../types/map'
-import {
-  API,
-  createChess,
-  isCard,
-  isChessboardSetting,
-  isPositionString,
-  parsePosition
-} from './chessboard'
+import { API, isCard, isChessboardSetting, isPositionString, parsePosition } from './chessboard'
 
 export function isVersionRanges(obj): obj is VersionRanges {
   if (typeof obj !== 'object') return false
@@ -45,7 +38,7 @@ export function getInfo(mapData: Map): [string, string] {
           `    ${card.name}${card.isChief ? '（首领）' : ''} - ${['中立', '红方', '蓝方'][card.camp]}`
       ),
       '\n扩展：',
-      ...Object.entries(mapData.extensions).map(([key, version]) => `    ${key}${version}`)
+      ...Object.entries(mapData.extensions).map(([key, version]) => `    ${key} ${version}`)
     ].join('\n')
   ]
 }
@@ -60,7 +53,7 @@ export function generateChessboard(mapData: Map): Chessboard {
     const id = mapData.chessboard.init[posString]
     const card = mapData.cards.filter((card) => card.id === id)
     if (card.length !== 1) continue
-    API.setChess(chessboard, parsePosition(posString), createChess(card[0]))
+    API.setChess(chessboard, parsePosition(posString), API.createChess(card[0]))
   }
   return chessboard
 }

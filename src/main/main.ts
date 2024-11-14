@@ -138,8 +138,8 @@ export async function setEnabledExtensions(
   }
 }
 
-export async function importExtensions(): Promise<void> {
-  const result = await dialog.showOpenDialog({
+export async function importExtensions(mainWindow: BrowserWindow): Promise<void> {
+  const result = await dialog.showOpenDialog(mainWindow, {
     title: '导入扩展',
     buttonLabel: '导入',
     filters: [
@@ -222,8 +222,8 @@ export async function openExtensionFolder(): Promise<void> {
   shell.openPath(await getSetting('extensions-save-path'))
 }
 
-export async function chooseExtensionFolder(): Promise<void> {
-  const result = await dialog.showOpenDialog({
+export async function chooseExtensionFolder(mainWindow: BrowserWindow): Promise<void> {
+  const result = await dialog.showOpenDialog(mainWindow, {
     title: '选择扩展存储路径',
     defaultPath: await getSetting('extensions-save-path'),
     buttonLabel: '选择',

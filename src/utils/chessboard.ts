@@ -3,6 +3,7 @@ import type {
   Chess,
   Chessboard,
   ChessboardSetting,
+  Direction,
   MoveRange,
   Position,
   PositionString
@@ -47,12 +48,6 @@ export function parsePosition(posString: PositionString): Position {
   return JSON.parse(posString)
 }
 
-export function createChess(card: Card): Chess {
-  const chess = JSON.parse(JSON.stringify(card))
-  if (!chess.attr) chess.attr = {}
-  return chess
-}
-
 const directionOffsets: Position[] = [
   [-1, 0],
   [-1, 1],
@@ -68,8 +63,28 @@ export const API = {
   canEat(camp1: number, camp2: number): boolean {
     return camp1 !== 0 && camp2 !== 0 && camp1 !== camp2
   },
-  getNewPos(pos: Position, offset: Position, multiplier: number = 1): Position {
+  getNewPos(pos: Position, direction: Direction, multiplier: number = 1): Position {
+    const offset = directionOffsets[direction - 1]
     return [pos[0] + offset[0] * multiplier, pos[1] + offset[1] * multiplier]
+  },
+  checkCondition(condition: string, pos: Position): boolean {
+    const variables = {
+      row: pos[0],
+      col: pos[1]
+    }
+    const expression = condition.replace(/(\w+)/g, (match) => {
+      return typeof variables[match] !== 'undefined' ? variables[match] : match
+    })
+    try {
+      return Function(`return ${expression}`)()
+    } catch {
+      return false
+    }
+  },
+  createChess(card: Card): Chess {
+    const chess = JSON.parse(JSON.stringify(card))
+    if (!chess.attr) chess.attr = {}
+    return chess
   },
   isInChessboard(chessboard: Chessboard, pos: Position): boolean {
     return pos[0] >= 0 && pos[0] < chessboard.length && pos[1] >= 0 && pos[1] < chessboard[0].length
@@ -86,17 +101,16 @@ export const API = {
   traverseMoveRanges(
     chessboard: Chessboard,
     pos: Position,
-    callback: (pos: Position) => boolean
+    callback: (pos: Position, direction: Direction, step: number) => boolean
   ): void {
     const chess = API.getChess(chessboard, pos)
     if (!chess) return
     for (const moveRange of chess.moveRanges) {
-      const directionOffset = directionOffsets[moveRange.direction - 1]
       const maxStep = moveRange.maxstep === -1 ? Infinity : moveRange.maxstep || 1
       for (let step = 1; step <= maxStep; step++) {
-        const newPos = API.getNewPos(pos, directionOffset, step)
+        const newPos = API.getNewPos(pos, moveRange.direction, step)
         if (!API.isInChessboard(chessboard, newPos)) break
-        if (callback(newPos)) break
+        if (callback(newPos, moveRange.direction, step)) break
       }
     }
   },

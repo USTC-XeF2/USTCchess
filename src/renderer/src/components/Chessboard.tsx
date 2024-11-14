@@ -33,12 +33,14 @@ function ChessboardComponent({
   const [selectedPosition, setSelectedPosition] = useState<Position>()
   const [draggingPiece, setDraggingPosition] = useState<Position>()
   const [availableMoves, setAvailableMoves] = useState<Position[]>([])
+  const [canMoveCache, setCanMoveCache] = useState<boolean>()
 
   const isInAvailableMoves = (pos: Position): boolean => {
     return availableMoves.some((p) => isEqualPosition(p, pos))
   }
 
   const enterCell = async (pos: Position): Promise<void> => {
+    setCanMoveCache(await canMove?.(pos))
     if (selectedPosition) return
     setAvailableMoves(await getAvailableMoves(pos))
   }
@@ -47,17 +49,20 @@ function ChessboardComponent({
     setAvailableMoves([])
   }
   const chooseCell = async (pos: Position): Promise<void> => {
-    if (selectedPosition) {
-      if (isInAvailableMoves(pos)) move?.(selectedPosition, pos)
-      setSelectedPosition(undefined)
-      setAvailableMoves([])
-    } else if (await canMove?.(pos)) {
-      setSelectedPosition(pos)
-      setAvailableMoves(await getAvailableMoves(pos))
-    }
+    if (isInAvailableMoves(pos)) {
+      move?.(selectedPosition!, pos)
+    } else if (canMoveCache) {
+      if (!(selectedPosition && isEqualPosition(selectedPosition, pos))) {
+        setSelectedPosition(pos)
+        setAvailableMoves(await getAvailableMoves(pos))
+        return
+      }
+    } else if (!selectedPosition) return
+    setSelectedPosition(undefined)
+    setAvailableMoves([])
   }
   const onDragStart = async (e, pos: Position): Promise<void> => {
-    if (selectedPosition || !(await canMove?.(pos))) return e.preventDefault()
+    if (selectedPosition || !canMoveCache) return e.preventDefault()
     setAvailableMoves(await getAvailableMoves(pos))
     setDraggingPosition(pos)
   }
@@ -79,7 +84,9 @@ function ChessboardComponent({
     const cellStyle: React.CSSProperties = {
       width: cellSize,
       height: cellSize,
+      borderRadius: intersection ? '50%' : '0',
       color: chess ? (chess.camp == 1 ? 'red' : chess.camp == 2 ? 'blue' : 'green') : 'black',
+      fontWeight: chess?.isChief ? 'bold' : 'normal',
       cursor: cellDraggable ? 'grab' : 'pointer',
       ...(selectedPosition && isEqualPosition(selectedPosition, pos)
         ? { backgroundColor: 'yellow' }
@@ -96,7 +103,9 @@ function ChessboardComponent({
         onClick={() => chooseCell(pos)}
         draggable={cellDraggable}
         onDragStart={(e) => onDragStart(e, pos)}
-        onDragOver={(e) => e.preventDefault()}
+        onDragOver={(e) => {
+          if (isInAvailableMoves(pos)) return e.preventDefault()
+        }}
         onDrop={() => onDrop(pos)}
       >
         {chess?.name}

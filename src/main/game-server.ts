@@ -5,7 +5,7 @@ import { RawData, WebSocket, WebSocketServer } from 'ws'
 import { Position } from '../types/chessboard'
 import { Map as GameMap } from '../types/map'
 import { Extension } from '../types/extension'
-import { API, createChess } from '../utils/chessboard'
+import { API } from '../utils/chessboard'
 import { generateChessboard } from '../utils/map'
 import { GameData } from '../utils/game'
 
@@ -41,10 +41,9 @@ export class GameServer extends GameData {
   constructor(mapData: GameMap, extensions: Extension[], port: number, openToLAN: boolean = false) {
     super()
     this.mapData = mapData
-    this.extensions = extensions
+    this.loadExtensions(extensions)
     this.chessboard = generateChessboard(mapData)
     this.wss = new WebSocketServer({ port, host: openToLAN ? '0.0.0.0' : 'localhost' })
-    this.initialExtensions(createChess)
     this.wss.on('connection', this.onConnection.bind(this))
   }
 

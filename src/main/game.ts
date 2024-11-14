@@ -115,11 +115,10 @@ class GameClient extends GameData {
           const { camp, mapData } = data.data as { camp: number; mapData: GameMap }
           this.camp = camp
           this.mapData = mapData
-          this.extensions = await autoGetNeededExtensions(this.mapData!.extensions)
+          this.loadExtensions(await autoGetNeededExtensions(mapData.extensions))
           if (await getSetting('check-extensions'))
             if (!checkExtensions(this.extensions, this.mapData!.extensions))
               this.close('地图所需扩展未启用或版本错误')
-          this.initialExtensions()
           this.window.webContents.send('connect-success')
           this.isConnectSuccess = true
           break
@@ -165,11 +164,7 @@ class GameClient extends GameData {
       case 'get-available-moves':
         return { status: 'success', data: this.getAvailableMoves(data as Position) }
       case 'move': {
-        const res = await this.contactToServer(type, data)
-        if (res.status === 'success') {
-          this.afterMove((data as { from: Position }).from, (data as { to: Position }).to)
-        }
-        return res
+        return await this.contactToServer(type, data)
       }
       default:
         return { status: 'error', data: 'Unknown type.' }
