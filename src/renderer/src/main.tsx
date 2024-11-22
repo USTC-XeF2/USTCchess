@@ -14,10 +14,9 @@ import {
   SettingOutlined
 } from '@ant-design/icons'
 import type { TabsProps } from 'antd'
-import { Button, ConfigProvider, Image, Space, Tabs, theme, Typography } from 'antd'
-import enUS from 'antd/locale/en_US'
-import zhCN from 'antd/locale/zh_CN'
+import { Button, Image, Space, Tabs, Typography } from 'antd'
 
+import AppConfig from './config'
 import StartPage from './components/StartPage'
 import ExtensionPage from './components/ExtensionPage'
 import SettingPage from './components/SettingPage'
@@ -43,38 +42,13 @@ const tabItems: TabsProps['items'] = [
   }
 ]
 
-const localeOptions = {
-  enUS: enUS,
-  zhCN: zhCN
-}
-
-function App(): JSX.Element {
+function Main(): JSX.Element {
   const [isMaximized, setMaximized] = useState<boolean>(false)
-  const [locale, setLocale] = useState<string>('')
-  const [isDark, setIsDark] = useState<boolean>(false)
-  const [primaryColor, setPrimaryColor] = useState<string>('')
 
   useEffect(() => {
-    const reload = async (): Promise<void> => {
-      setLocale(await window.electronAPI.getSetting('language'))
-      setIsDark(await window.electronAPI.getIsDark())
-      setPrimaryColor(await window.electronAPI.getSetting('primary-color'))
-    }
-    reload()
-
-    window.addEventListener('update-mainwindow', reload)
-    window.electronAPI.on('update-theme', reload)
+    window.addEventListener('update-mainwindow', window.electronAPI.updateConfig)
     window.electronAPI.on('window-maximize', (val) => setMaximized(val as boolean))
   }, [])
-
-  useEffect(() => {
-    document.documentElement.style.setProperty('--bg-color', isDark ? '#141414' : '#FFF')
-    document.documentElement.style.setProperty(
-      '--bg-color-deviation',
-      isDark ? '#424242' : '#D9D9D9'
-    )
-    document.documentElement.style.setProperty('--primary-color', primaryColor)
-  }, [isDark, primaryColor])
 
   const titleBar = {
     left: (
@@ -110,26 +84,20 @@ function App(): JSX.Element {
   }
 
   return (
-    <ConfigProvider
-      locale={localeOptions[locale]}
-      theme={{
-        token: { colorPrimary: primaryColor },
-        algorithm: isDark ? theme.darkAlgorithm : theme.defaultAlgorithm
-      }}
-    >
-      <Tabs
-        tabBarExtraContent={titleBar}
-        defaultActiveKey="start"
-        centered
-        items={tabItems}
-        style={{ height: '100vh' }}
-      />
-    </ConfigProvider>
+    <Tabs
+      tabBarExtraContent={titleBar}
+      defaultActiveKey="start"
+      centered
+      items={tabItems}
+      style={{ height: '100vh' }}
+    />
   )
 }
 
 ReactDOM.createRoot(document.getElementById('root') as HTMLElement).render(
   <React.StrictMode>
-    <App />
+    <AppConfig>
+      <Main />
+    </AppConfig>
   </React.StrictMode>
 )

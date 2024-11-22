@@ -1,10 +1,12 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 
-import { Chessboard, Position } from '../types/chessboard'
+import { Position } from '../types/chessboard'
 import { Map } from '../types/map'
 import { Extension } from '../types/extension'
+import { GameData as GameDataInterface } from '../types/game'
 import { generateChessboard } from '../utils/map'
+import { getInfo } from '../utils/extension'
 import { GameData } from '../utils/game'
 
 import {
@@ -30,21 +32,21 @@ import { checkOnClose, createClients } from './game'
 
 class PreloadGameData extends GameData {
   isAllExtLoaded: boolean = false
-  async setMapData(mapData: Map): Promise<Map> {
+  async setMapData(mapData: Map): Promise<void> {
     this.mapData = mapData
     this.loadExtensions(await autoGetNeededExtensions(mapData.extensions))
     this.isAllExtLoaded = checkExtensions(this.extensions, mapData.extensions)
     this.chessboard = generateChessboard(mapData)
-    return mapData
   }
-  getMapData(): Map | undefined {
-    return this.mapData || undefined
+  getInterface(): GameDataInterface {
+    return {
+      mapData: this.mapData,
+      extensions: this.extensions.map((ext) => getInfo(ext)),
+      chessboard: this.chessboard
+    }
   }
   getExtensions(): Extension[] {
     return this.extensions
-  }
-  getChessboard(): Chessboard {
-    return this.chessboard
   }
 }
 
@@ -93,26 +95,20 @@ app.whenReady().then(() => {
     })
   })
 
-  const getIsDark = async (): Promise<boolean> => {
-    const theme = await getSetting('theme')
-    return theme === 'dark' || (theme === 'auto' && nativeTheme.shouldUseDarkColors)
+  const getTheme = async (): Promise<{ isDark: boolean; primaryColor: string }> => {
+    const settings = await getSettings()
+    const theme = settings['theme']
+    const isDark = theme === 'dark' || (theme === 'auto' && nativeTheme.shouldUseDarkColors)
+    const primaryColor = settings['primary-color']
+    return { isDark, primaryColor }
   }
-  nativeTheme.on('updated', () =>
-    BrowserWindow.getAllWindows().forEach((w) => w.webContents.send('update-theme'))
-  )
 
-  const getMapData = async (reload: boolean): Promise<Map | undefined> => {
-    if (reload) {
-      const lastLoadedMap = (await getLastLoaded())['last-loaded-map']
-      if (lastLoadedMap) {
-        const mapData = await analyzeMap(lastLoadedMap)
-        return gameData.setMapData(mapData)
-      }
-    }
-    return gameData.getMapData()
+  const updateConfig = (): void => {
+    BrowserWindow.getAllWindows().forEach((w) => w.webContents.send('update-config'))
   }
-  getMapData(true)
-  const chooseMap = async (): Promise<Map | null> => {
+  nativeTheme.on('updated', updateConfig)
+
+  const chooseMap = async (): Promise<boolean> => {
     const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
       title: '选择地图',
       defaultPath: (await getLastLoaded())['last-loaded-map'],
@@ -123,17 +119,36 @@ app.whenReady().then(() => {
         { name: 'All Files', extensions: ['*'] }
       ]
     })
-    if (canceled) return null
-    const mapData = await analyzeMap(filePaths[0])
-    changeLastLoaded('last-loaded-map', filePaths[0])
-    return gameData.setMapData(mapData)
+    if (canceled) return true
+    try {
+      gameData.setMapData(await analyzeMap(filePaths[0]))
+      changeLastLoaded('last-loaded-map', filePaths[0])
+      return true
+    } catch {
+      return false
+    }
   }
+
+  const getGameData = async (reload: boolean): Promise<GameDataInterface> => {
+    if (reload) {
+      const lastLoadedMap = (await getLastLoaded())['last-loaded-map']
+      if (lastLoadedMap) {
+        try {
+          await gameData.setMapData(await analyzeMap(lastLoadedMap))
+        } catch {
+          // pass
+        }
+      }
+    }
+    return gameData.getInterface()
+  }
+  getGameData(true)
 
   const startGame = async (gamemode: string): Promise<string> => {
     if (isGameRunning) return '游戏正在运行中'
     if (gamemode === 'local-mode') {
       try {
-        const mapData = gameData.getMapData()
+        const mapData = gameData.getInterface().mapData
         if (!mapData) return '未选择地图文件'
         if ((await getSetting('check-extensions')) && !gameData.isAllExtLoaded)
           return '地图所需扩展未启用或版本错误'
@@ -158,11 +173,11 @@ app.whenReady().then(() => {
     return (_e, ...args): unknown => func(...args)
   }
 
-  ipcMain.handle('get-is-dark', getIsDark)
+  ipcMain.handle('get-theme', getTheme)
   ipcMain.handle('get-game-status', () => isGameRunning)
   ipcMain.handle('start-game', ignoreFirstArg(startGame))
-  ipcMain.handle('get-map', ignoreFirstArg(getMapData))
   ipcMain.handle('choose-map', chooseMap)
+  ipcMain.handle('get-game-data', ignoreFirstArg(getGameData))
   ipcMain.handle('get-extensions-info', getExtensionsInfo)
   ipcMain.handle('get-enabled-extensions', getEnabledExtensions)
   ipcMain.handle('set-enabled-extensions', ignoreFirstArg(setEnabledExtensions))
@@ -172,8 +187,9 @@ app.whenReady().then(() => {
   ipcMain.handle('change-settings', ignoreFirstArg(changeSettings))
   ipcMain.handle('choose-extension-folder', () => chooseExtensionFolder(mainWindow))
   ipcMain.on('control-window', ignoreFirstArg(controlWindow))
-  ipcMain.on('generate-chessboard', (e, mapData?: Map) => {
-    e.returnValue = mapData ? generateChessboard(mapData) : gameData.getChessboard()
+  ipcMain.on('update-config', updateConfig)
+  ipcMain.on('generate-chessboard', (e, mapData: Map) => {
+    e.returnValue = generateChessboard(mapData)
   })
   ipcMain.on('get-available-moves', (e, pos: Position) => {
     e.returnValue = gameData.getAvailableMoves(pos)

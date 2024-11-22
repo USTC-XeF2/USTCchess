@@ -2,20 +2,21 @@ import { Chessboard } from '../types/chessboard'
 import { Map } from '../types/map'
 import { ExtensionInfo } from '../types/extension'
 import { Settings } from '../types/settings'
-import { Response } from '../types/net'
+import { GameData, Response } from '../types/game'
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 import { api } from './index'
 
 interface API {
   on: (type: string, callback: (data?: unknown) => void) => void
+  getTheme: () => Promise<{ isDark: boolean; primaryColor: string }>
   controlWindow: (action: string) => void
-  getIsDark: () => Promise<boolean>
+  updateConfig: () => void
   getGameStatus: () => Promise<boolean>
   startGame: (gamemode: string) => Promise<string>
-  getMap: (reload?: boolean) => Promise<Map | undefined>
-  chooseMap: () => Promise<Map | null>
-  generateChessboard: (mapData?: Map) => Chessboard
+  chooseMap: () => Promise<boolean>
+  getGameData: (reload?: boolean) => Promise<GameData>
+  generateChessboard: (mapData: Map) => Chessboard
   getAvailableMoves: (pos: Position) => Position[]
   getExtensionsInfo: () => Promise<ExtensionInfo[]>
   getEnabledExtensions: () => Promise<ExtensionInfo['key'][]>

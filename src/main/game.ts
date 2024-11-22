@@ -7,7 +7,7 @@ import { autoGetNeededExtensions, checkExtensions, getSetting } from './main'
 
 import { Chessboard, Position } from '../types/chessboard'
 import { Map as GameMap } from '../types/map'
-import { Response } from '../types/net'
+import { Response } from '../types/game'
 import { getInfo } from '../utils/map'
 import { GameData } from '../utils/game'
 

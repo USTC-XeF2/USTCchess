@@ -71,7 +71,7 @@ function ExtensionPage(): JSX.Element {
   return (
     <Transfer
       dataSource={extensions.map((value) => ({ ...value, disabled: enableChangeFlag }))}
-      titles={['未启用', '已启用']}
+      titles={[enableChangeFlag ? '自动启用扩展' : '未启用', '已启用']}
       operations={['启用扩展']}
       targetKeys={enabledExtensions}
       onChange={onChange}

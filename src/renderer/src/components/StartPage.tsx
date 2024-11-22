@@ -13,11 +13,11 @@ import {
   message,
   Select,
   Space,
-  Tooltip
+  Tooltip,
+  Typography
 } from 'antd'
 
-import { Map } from 'src/types/map'
-import { ExtensionInfo } from 'src/types/extension'
+import { GameData } from 'src/types/game'
 
 import ChessboardComponent from './Chessboard'
 
@@ -27,16 +27,9 @@ const gamemodes: SelectProps['options'] = [
   { value: 'room-online', label: '房间模式', disabled: true }
 ]
 
-function MapPreload({ mapData }: { mapData: Map }): JSX.Element {
-  const [extensions, setExtensions] = useState<ExtensionInfo[]>([])
-
-  useEffect(() => {
-    const fetchData = async (): Promise<void> => {
-      setExtensions(await window.electronAPI.getExtensionsInfo())
-    }
-    fetchData()
-    window.addEventListener('update-mainwindow', fetchData)
-  }, [])
+function MapPreload({ gameData }: { gameData?: GameData }): JSX.Element {
+  if (!gameData?.mapData) return <Alert message="暂未选择地图" type="warning" showIcon />
+  const { mapData, extensions, chessboard } = gameData
 
   const basicInformation: DescriptionsProps['items'] = [
     {
@@ -59,15 +52,15 @@ function MapPreload({ mapData }: { mapData: Map }): JSX.Element {
   const extensionItems = Object.keys(mapData.extensions).map((key) => {
     const extension = extensions.find((v) => v.key === key)
     const state = !extension
-      ? 2
+      ? 'danger'
       : semver.satisfies(extension.version, mapData.extensions[key])
-        ? 0
-        : 1
+        ? 'success'
+        : 'warning'
     return {
       label: key,
       children: (
-        <Tooltip title={state === 1 ? `当前版本为${extension?.version}` : ''}>
-          <span style={{ color: ['green', 'gold', 'red'][state] }}>{mapData.extensions[key]}</span>
+        <Tooltip title={`当前版本为${extension?.version}`}>
+          <Typography.Text type={state}>{mapData.extensions[key]}</Typography.Text>
         </Tooltip>
       )
     }
@@ -83,7 +76,7 @@ function MapPreload({ mapData }: { mapData: Map }): JSX.Element {
       label: '棋盘预览',
       children: (
         <ChessboardComponent
-          chessboard={window.electronAPI.generateChessboard()}
+          chessboard={chessboard}
           maxWidth="calc(30vw + 100px)"
           maxHeight="calc(80vh - 50px)"
           intersection={mapData.chessboard.intersection}
@@ -106,12 +99,12 @@ function StartPage(): JSX.Element {
   const [isGameRunning, setGameRunning] = useState<boolean>(false)
   const [currentGamemode, setCurrentGamemode] = useState<string>('local-mode')
   const [mapLoadError, setMapLoadError] = useState<boolean>(false)
-  const [mapData, setMapData] = useState<Map>()
+  const [gameData, setGameData] = useState<GameData>()
 
   useEffect(() => {
     const fetchData = async (): Promise<void> => {
       setGameRunning(await window.electronAPI.getGameStatus())
-      setMapData(await window.electronAPI.getMap())
+      setGameData(await window.electronAPI.getGameData())
     }
     fetchData()
 
@@ -122,7 +115,7 @@ function StartPage(): JSX.Element {
     if (mapLoadError) {
       message.warning('地图文件格式错误')
       return
-    } else if (!mapData) {
+    } else if (!gameData) {
       message.info('未选择地图文件')
       return
     }
@@ -135,16 +128,9 @@ function StartPage(): JSX.Element {
   }
 
   const chooseMap: ButtonProps['onClick'] = async () => {
-    window.electronAPI
-      .chooseMap()
-      .then((map) => {
-        if (!map) return
-        setMapData(map)
-        setMapLoadError(false)
-      })
-      .catch(() => {
-        setMapLoadError(true)
-      })
+    const res = await window.electronAPI.chooseMap()
+    setMapLoadError(!res)
+    if (res) setGameData(await window.electronAPI.getGameData())
   }
 
   return (
@@ -182,18 +168,14 @@ function StartPage(): JSX.Element {
         extra={
           <Button
             icon={<ReloadOutlined />}
-            onClick={async () => setMapData(await window.electronAPI.getMap(true))}
+            onClick={async () => setGameData(await window.electronAPI.getGameData(true))}
           >
             重新加载
           </Button>
         }
         style={{ width: '100%', overflowY: 'auto' }}
       >
-        {mapData ? (
-          <MapPreload mapData={mapData} />
-        ) : (
-          <Alert message="暂未选择地图" type="warning" showIcon />
-        )}
+        <MapPreload gameData={gameData} />
       </Card>
     </Flex>
   )

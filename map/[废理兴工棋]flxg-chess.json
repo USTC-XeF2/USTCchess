@@ -1,6 +1,6 @@
 {
 	"id": "flxg-chess",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"name": "废理兴工棋",
 	"author": "Lithium",
 	"description": "来和坑坑一起废理兴工！",
@@ -305,6 +305,6 @@
 	},
 	"extensions": {
 		"promote": "<2",
-		"flxg-chess": "1.0.0"
+		"flxg-chess": "1.0"
 	}
 }

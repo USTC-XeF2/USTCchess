@@ -4,13 +4,14 @@ import type { API } from './api'
 
 const api: API = {
   on: (type, callback) => ipcRenderer.on(type, (_e, data?) => callback(data)),
+  getTheme: () => ipcRenderer.invoke('get-theme'),
   controlWindow: (action) => ipcRenderer.send('control-window', action),
-  getIsDark: () => ipcRenderer.invoke('get-is-dark'),
+  updateConfig: () => ipcRenderer.send('update-config'),
   getGameStatus: () => ipcRenderer.invoke('get-game-status'),
   startGame: (gamemode) => ipcRenderer.invoke('start-game', gamemode),
-  getMap: (reload = false) => ipcRenderer.invoke('get-map', reload),
   chooseMap: () => ipcRenderer.invoke('choose-map'),
-  generateChessboard: (mapData = undefined) => ipcRenderer.sendSync('generate-chessboard', mapData),
+  getGameData: (reload = false) => ipcRenderer.invoke('get-game-data', reload),
+  generateChessboard: (mapData) => ipcRenderer.sendSync('generate-chessboard', mapData),
   getAvailableMoves: (pos) => ipcRenderer.sendSync('get-available-moves', pos),
   getExtensionsInfo: () => ipcRenderer.invoke('get-extensions-info'),
   getEnabledExtensions: () => ipcRenderer.invoke('get-enabled-extensions'),

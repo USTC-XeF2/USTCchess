@@ -1,6 +1,7 @@
 import '../assets/chessboard.css'
 
 import { CSSProperties, useState } from 'react'
+import { theme } from 'antd'
 
 import { Chessboard, Position } from 'src/types/chessboard'
 
@@ -52,11 +53,13 @@ function ChessboardComponent({
     if (isInAvailableMoves(pos)) {
       move?.(selectedPosition!, pos)
     } else if (canMoveCache) {
-      if (!(selectedPosition && isEqualPosition(selectedPosition, pos))) {
+      if (selectedPosition && isEqualPosition(selectedPosition, pos)) {
+        setSelectedPosition(undefined)
+      } else {
         setSelectedPosition(pos)
         setAvailableMoves(await getAvailableMoves(pos))
-        return
       }
+      return
     } else if (!selectedPosition) return
     setSelectedPosition(undefined)
     setAvailableMoves([])
@@ -75,6 +78,8 @@ function ChessboardComponent({
     }
   }
 
+  const { token } = theme.useToken()
+
   const width = chessboard[0].length
   const height = chessboard.length
   const cellSize = `calc(min(${maxWidth} / ${width}, ${maxHeight} / ${height}))`
@@ -88,10 +93,11 @@ function ChessboardComponent({
       color: chess ? (chess.camp == 1 ? 'red' : chess.camp == 2 ? 'blue' : 'green') : 'black',
       fontWeight: chess?.isChief ? 'bold' : 'normal',
       cursor: cellDraggable ? 'grab' : 'pointer',
-      ...(selectedPosition && isEqualPosition(selectedPosition, pos)
-        ? { backgroundColor: 'yellow' }
-        : {}),
-      ...(isInAvailableMoves(pos) ? { backgroundColor: chess ? 'pink' : 'greenyellow' } : {})
+      ...(isInAvailableMoves(pos)
+        ? { backgroundColor: chess ? token.colorErrorBgFilledHover : token.colorSuccessBgHover }
+        : selectedPosition && isEqualPosition(selectedPosition, pos)
+          ? { backgroundColor: token.colorWarningBgHover }
+          : {})
     }
     return (
       <div
