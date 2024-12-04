@@ -1,12 +1,12 @@
-import { app, BrowserWindow, dialog, shell } from 'electron'
+import { app, BrowserWindow, shell } from 'electron'
 import { basename, extname, join } from 'node:path'
 import { promises as fsPromises } from 'node:fs'
 import { is } from '@electron-toolkit/utils'
 import semver from 'semver'
 
 import type { Map, VersionRanges } from '../types/map'
-import { Extension, ExtensionInfo } from '../types/extension'
-import type { Settings } from '../types/settings'
+import { Extension, ExtensionInfo, ExtNameList } from '../types/extension'
+import type { LastLoaded, Settings } from '../types/settings'
 import { isMap } from '../utils/map'
 import { getInfo, isExtension } from '../utils/extension'
 import { defaultSettings } from '../utils/settings'
@@ -52,7 +52,7 @@ export function createMainWindow(): BrowserWindow {
   return mainWindow
 }
 
-export async function getLastLoaded(): Promise<object> {
+export async function getLastLoaded(): Promise<LastLoaded> {
   try {
     const data = await fsPromises.readFile(lastLoadedPath)
     return JSON.parse(data.toString())
@@ -61,12 +61,18 @@ export async function getLastLoaded(): Promise<object> {
   }
 }
 
-export async function changeLastLoaded(key: string, value: unknown): Promise<void> {
+export async function changeLastLoaded<T extends keyof LastLoaded>(
+  key: T,
+  value: LastLoaded[T]
+): Promise<LastLoaded[T]> {
   try {
     const lastLoaded = await getLastLoaded()
-    await fsPromises.writeFile(lastLoadedPath, JSON.stringify({ ...lastLoaded, [key]: value }))
+    const originalValue = lastLoaded[key]
+    lastLoaded[key] = value
+    await fsPromises.writeFile(lastLoadedPath, JSON.stringify(lastLoaded))
+    return originalValue
   } catch {
-    // pass
+    return undefined
   }
 }
 
@@ -119,7 +125,7 @@ export async function getExtensionsInfo(): Promise<ExtensionInfo[]> {
   return (await getExtensions()).map((extension) => getInfo(extension))
 }
 
-export async function getEnabledExtensions(): Promise<ExtensionInfo['key'][]> {
+export async function getEnabledExtensions(): Promise<ExtNameList> {
   try {
     const lastLoaded = await getLastLoaded()
     return lastLoaded['enabled-extensions'] || []
@@ -128,9 +134,7 @@ export async function getEnabledExtensions(): Promise<ExtensionInfo['key'][]> {
   }
 }
 
-export async function setEnabledExtensions(
-  enabledExtensions: ExtensionInfo['key'][]
-): Promise<void> {
+export async function setEnabledExtensions(enabledExtensions: ExtNameList): Promise<void> {
   try {
     await changeLastLoaded('enabled-extensions', enabledExtensions)
   } catch {
@@ -138,21 +142,10 @@ export async function setEnabledExtensions(
   }
 }
 
-export async function importExtensions(mainWindow: BrowserWindow): Promise<void> {
-  const result = await dialog.showOpenDialog(mainWindow, {
-    title: '导入扩展',
-    buttonLabel: '导入',
-    filters: [
-      { name: 'JavaScript Files', extensions: ['js'] },
-      { name: 'All Files', extensions: ['*'] }
-    ],
-    properties: ['multiSelections']
-  })
+export async function copyExtensions(paths: string[]): Promise<void> {
   const extensionPath = await getSetting('extensions-save-path')
   await Promise.all(
-    result.filePaths.map((filePath) =>
-      fsPromises.copyFile(filePath, join(extensionPath, basename(filePath)))
-    )
+    paths.map((path) => fsPromises.copyFile(path, join(extensionPath, basename(path))))
   )
 }
 
@@ -160,13 +153,40 @@ export async function autoGetNeededExtensions(
   neededExtensions: VersionRanges
 ): Promise<Extension[]> {
   const enableFlag = await getSetting('auto-enable-extensions')
-  let extList: ExtensionInfo['key'][] = []
+  let enabledExtensions: ExtNameList = []
   if (enableFlag) {
-    extList = Object.keys(neededExtensions)
+    enabledExtensions = Object.keys(neededExtensions)
   } else {
-    extList = await getEnabledExtensions()
+    enabledExtensions = await getEnabledExtensions()
   }
-  return (await getExtensions()).filter((extension) => extList.includes(extension.key))
+
+  const selectedExtensions: Extension[] = []
+
+  const groupedExtensions = (await getExtensions())
+    .filter((extension) => enabledExtensions.includes(extension.key))
+    .reduce<Record<string, Extension[]>>((acc, ext) => {
+      if (!acc[ext.key]) {
+        acc[ext.key] = []
+      }
+      acc[ext.key].push(ext)
+      return acc
+    }, {})
+
+  for (const key of Object.keys(groupedExtensions)) {
+    const extensions = groupedExtensions[key].sort((a, b) => semver.rcompare(a.version, b.version))
+    const neededVersionRange = neededExtensions[key]
+
+    const matchingExtensions = extensions.filter((ext) =>
+      neededVersionRange ? semver.satisfies(ext.version, neededVersionRange) : false
+    )
+    if (matchingExtensions.length) {
+      selectedExtensions.push(matchingExtensions[0])
+    } else if (extensions.length) {
+      selectedExtensions.push(extensions[0])
+    }
+  }
+
+  return selectedExtensions
 }
 
 export function checkExtensions(
@@ -220,15 +240,4 @@ export async function changeSettings(changedSettings: Partial<Settings>): Promis
 
 export async function openExtensionFolder(): Promise<void> {
   shell.openPath(await getSetting('extensions-save-path'))
-}
-
-export async function chooseExtensionFolder(mainWindow: BrowserWindow): Promise<void> {
-  const result = await dialog.showOpenDialog(mainWindow, {
-    title: '选择扩展存储路径',
-    defaultPath: await getSetting('extensions-save-path'),
-    buttonLabel: '选择',
-    properties: ['openDirectory']
-  })
-  if (result.canceled) return
-  await changeSettings({ 'extensions-save-path': result.filePaths[0] })
 }

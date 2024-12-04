@@ -25,7 +25,7 @@ function AppConfig({ children }: { children: JSX.Element }): JSX.Element {
     reload()
     window.electronAPI.on('update-config', reload)
   }, [])
-  console.log(1)
+
   const token = theme.getDesignToken(appTheme)
   document.body.style.backgroundColor = token.colorBgElevated
   document.documentElement.style.setProperty('--scrollbar-color', token.colorFillContentHover)

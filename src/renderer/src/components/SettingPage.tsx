@@ -95,6 +95,13 @@ function SettingPage(): JSX.Element {
         >
           <Switch />
         </Form.Item>
+        <Form.Item
+          name="auto-reload-map"
+          label="自动重载地图"
+          extra="地图/扩展文件发生变化时自动重新加载地图"
+        >
+          <Switch />
+        </Form.Item>
       </Card>
       <Card title="扩展设置">
         <Form.Item

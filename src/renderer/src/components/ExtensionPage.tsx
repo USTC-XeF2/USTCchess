@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import { ReloadOutlined, SelectOutlined } from '@ant-design/icons'
+import { SelectOutlined } from '@ant-design/icons'
 import type { TransferProps } from 'antd'
-import { Alert, Button, Flex, Transfer } from 'antd'
+import { Alert, Button, Transfer } from 'antd'
 
 import { ExtensionInfo } from 'src/types/extension'
 
@@ -20,6 +20,7 @@ function ExtensionPage(): JSX.Element {
     }
     fetchData()
 
+    window.electronAPI.on('update-extensions', fetchData)
     window.addEventListener('update-mainwindow', fetchData)
   }, [])
 
@@ -31,31 +32,18 @@ function ExtensionPage(): JSX.Element {
   const renderFooter: TransferProps['footer'] = (_, info) => {
     if (info?.direction === 'left') {
       return (
-        <Flex justify="space-between">
-          <Button
-            size="small"
-            type="primary"
-            icon={<SelectOutlined />}
-            iconPosition="end"
-            onClick={() => {
-              window.electronAPI.importExtensions().then(() => {
-                window.dispatchEvent(updateEvent)
-              })
-            }}
-            style={{ margin: 8 }}
-          >
-            导入扩展
-          </Button>
-          <Button
-            size="small"
-            icon={<ReloadOutlined />}
-            iconPosition="end"
-            onClick={() => window.dispatchEvent(updateEvent)}
-            style={{ margin: 8 }}
-          >
-            刷新
-          </Button>
-        </Flex>
+        <Button
+          type="primary"
+          icon={<SelectOutlined />}
+          block
+          onClick={() => {
+            window.electronAPI.importExtensions().then(() => {
+              window.dispatchEvent(updateEvent)
+            })
+          }}
+        >
+          导入扩展
+        </Button>
       )
     } else {
       return (

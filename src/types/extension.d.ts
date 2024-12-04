@@ -7,6 +7,8 @@ export interface ExtensionInfo {
   version: string
 }
 
+export type ExtNameList = ExtensionInfo['key'][]
+
 export interface Extension extends ExtensionInfo {
   API: ExtensionAPI // defined in chessboard.ts
   init?: () => void

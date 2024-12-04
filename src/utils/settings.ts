@@ -2,6 +2,7 @@ import type { Settings } from '../types/settings'
 
 export const defaultSettings: Settings = {
   'auto-minimize-mainwindow': true,
+  'auto-reload-map': true,
   'auto-enable-extensions': true,
   'check-extensions': true,
   'extensions-save-path': '',

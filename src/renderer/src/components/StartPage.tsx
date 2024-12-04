@@ -59,7 +59,7 @@ function MapPreload({ gameData }: { gameData?: GameData }): JSX.Element {
     return {
       label: key,
       children: (
-        <Tooltip title={`当前版本为${extension?.version}`}>
+        <Tooltip title={extension ? `当前版本为${extension.version}` : ''}>
           <Typography.Text type={state}>{mapData.extensions[key]}</Typography.Text>
         </Tooltip>
       )
@@ -101,6 +101,9 @@ function StartPage(): JSX.Element {
   const [mapLoadError, setMapLoadError] = useState<boolean>(false)
   const [gameData, setGameData] = useState<GameData>()
 
+  const reloadGameData = async (): Promise<void> =>
+    setGameData(await window.electronAPI.getGameData(true))
+
   useEffect(() => {
     const fetchData = async (): Promise<void> => {
       setGameRunning(await window.electronAPI.getGameStatus())
@@ -108,6 +111,7 @@ function StartPage(): JSX.Element {
     }
     fetchData()
 
+    window.electronAPI.on('update-map', reloadGameData)
     window.electronAPI.on('stop-game', () => setGameRunning(false))
   }, [])
 
@@ -166,10 +170,7 @@ function StartPage(): JSX.Element {
       <Card
         title="地图预览"
         extra={
-          <Button
-            icon={<ReloadOutlined />}
-            onClick={async () => setGameData(await window.electronAPI.getGameData(true))}
-          >
+          <Button icon={<ReloadOutlined />} onClick={reloadGameData}>
             重新加载
           </Button>
         }

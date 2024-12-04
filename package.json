@@ -1,6 +1,6 @@
 {
   "name": "ustcchess",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "a highly flexible and scalable board game",
   "main": "./out/main/index.js",
   "author": "XeF2, Lithium",
@@ -25,6 +25,7 @@
     "@electron-toolkit/utils": "^3.0.0",
     "@types/ws": "^8.5.12",
     "antd": "^5.21.2",
+    "react-konva": "^18.2.10",
     "ts-node": "^10.9.2",
     "ws": "^8.18.0"
   },

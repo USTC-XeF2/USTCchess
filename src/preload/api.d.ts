@@ -1,6 +1,6 @@
 import { Chessboard } from '../types/chessboard'
 import { Map } from '../types/map'
-import { ExtensionInfo } from '../types/extension'
+import { ExtensionInfo, ExtNameList } from '../types/extension'
 import { Settings } from '../types/settings'
 import { GameData, Response } from '../types/game'
 
@@ -19,8 +19,8 @@ interface API {
   generateChessboard: (mapData: Map) => Chessboard
   getAvailableMoves: (pos: Position) => Position[]
   getExtensionsInfo: () => Promise<ExtensionInfo[]>
-  getEnabledExtensions: () => Promise<ExtensionInfo['key'][]>
-  setEnabledExtensions: (enabledExtensions: ExtensionInfo['key'][]) => Promise<void>
+  getEnabledExtensions: () => Promise<ExtNameList>
+  setEnabledExtensions: (enabledExtensions: ExtNameList) => Promise<void>
   importExtensions: () => Promise<void>
   getSettings: () => Promise<Settings>
   getSetting: <T extends keyof Settings>(key: T) => Promise<Settings[T]>

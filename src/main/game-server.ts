@@ -99,7 +99,6 @@ export class GameServer extends GameData {
           const { from, to } = data.data as { from: Position; to: Position }
           const res = this.move(from, to)
           if (res) {
-            this.currentTurn = 3 - this.currentTurn
             this.sendAll('change-turn')
             this.send(ws, 'success', undefined, data.id)
           }
@@ -122,15 +121,27 @@ export class GameServer extends GameData {
     this.sendAll('game-start')
   }
 
+  canMove(pos: Position, to?: Position): boolean {
+    const chess = API.getChess(this.chessboard, pos)
+    if (!chess || API.canEat(this.currentTurn, chess.camp)) return false
+    const availableMoves = this.getAvailableMoves(pos)
+    if (to) return availableMoves.some((p) => p[0] === to[0] && p[1] === to[1])
+    return Boolean(availableMoves.length)
+  }
+
   move(from: Position, to: Position): boolean {
     if (!this.currentTurn) return false
-    const chess = API.getChess(this.chessboard, from)
-    if (!chess || API.canEat(this.currentTurn, chess.camp)) return false
-    const availableMoves = this.getAvailableMoves(from)
-    if (!availableMoves.some((pos) => pos[0] === to[0] && pos[1] === to[1])) return false
+    if (!this.canMove(from, to)) return false
     const oldChess = API.moveChess(this.chessboard, from, to)
     if (oldChess) this.onChessDeath(to, oldChess)
     this.afterMove(from, to)
+    this.currentTurn = 3 - this.currentTurn
+    for (let i = 0; i < this.chessboard.length; i++) {
+      for (let j = 0; j < this.chessboard[i].length; j++) {
+        if (this.canMove([i, j])) return true
+      }
+    }
+    this.endGame(this.currentTurn === 1 ? 2 : 1, '无可走棋子')
     return true
   }
 

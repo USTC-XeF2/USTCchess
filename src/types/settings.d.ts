@@ -1,5 +1,13 @@
+import { ExtNameList } from './extension'
+
+export interface LastLoaded {
+  'last-loaded-map'?: string
+  'enabled-extensions'?: ExtNameList
+}
+
 export interface Settings {
   'auto-minimize-mainwindow': boolean
+  'auto-reload-map': boolean
   'auto-enable-extensions': boolean
   'check-extensions': boolean
   'extensions-save-path': string

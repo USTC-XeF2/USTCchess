@@ -1,4 +1,5 @@
 import { app, BrowserWindow, dialog, ipcMain, nativeTheme } from 'electron'
+import { FSWatcher, unwatchFile, watch, watchFile } from 'node:fs'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 
 import { Position } from '../types/chessboard'
@@ -17,14 +18,13 @@ import {
   getExtensionsInfo,
   getEnabledExtensions,
   setEnabledExtensions,
-  importExtensions,
+  copyExtensions,
   autoGetNeededExtensions,
   checkExtensions,
   getSettings,
   getSetting,
   changeSettings,
-  openExtensionFolder,
-  chooseExtensionFolder
+  openExtensionFolder
 } from './main'
 
 import { GameServer, getUnusedPort } from './game-server'
@@ -108,6 +108,10 @@ app.whenReady().then(() => {
   }
   nativeTheme.on('updated', updateConfig)
 
+  const reloadMap = async (): Promise<void> => {
+    if (await getSetting('auto-reload-map')) mainWindow.webContents.send('update-map')
+  }
+
   const chooseMap = async (): Promise<boolean> => {
     const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
       title: '选择地图',
@@ -121,15 +125,20 @@ app.whenReady().then(() => {
     })
     if (canceled) return true
     try {
-      gameData.setMapData(await analyzeMap(filePaths[0]))
-      changeLastLoaded('last-loaded-map', filePaths[0])
+      await gameData.setMapData(await analyzeMap(filePaths[0]))
+      const originalPath = await changeLastLoaded('last-loaded-map', filePaths[0])
+      if (originalPath) unwatchFile(originalPath, reloadMap)
+      watchFile(filePaths[0], reloadMap)
       return true
     } catch {
       return false
     }
   }
 
-  const getGameData = async (reload: boolean): Promise<GameDataInterface> => {
+  const getGameData = async (
+    reload: boolean,
+    watch: boolean = false
+  ): Promise<GameDataInterface> => {
     if (reload) {
       const lastLoadedMap = (await getLastLoaded())['last-loaded-map']
       if (lastLoadedMap) {
@@ -138,11 +147,48 @@ app.whenReady().then(() => {
         } catch {
           // pass
         }
+        if (watch) watchFile(lastLoadedMap, reloadMap)
       }
     }
     return gameData.getInterface()
   }
-  getGameData(true)
+  getGameData(true, true)
+
+  const importExtensions = async (): Promise<void> => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '导入扩展',
+      buttonLabel: '导入',
+      filters: [
+        { name: 'JavaScript Files', extensions: ['js'] },
+        { name: 'All Files', extensions: ['*'] }
+      ],
+      properties: ['multiSelections']
+    })
+    copyExtensions(result.filePaths)
+  }
+
+  const reloadExt = (): void => {
+    reloadMap()
+    mainWindow.webContents.send('update-extensions')
+  }
+
+  let watcher: FSWatcher | null = null
+  const chooseExtensionFolder = async (): Promise<void> => {
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: '选择扩展存储路径',
+      defaultPath: await getSetting('extensions-save-path'),
+      buttonLabel: '选择',
+      properties: ['openDirectory']
+    })
+    if (result.canceled) return
+    await changeSettings({ 'extensions-save-path': result.filePaths[0] })
+    watcher?.close()
+    reloadMap()
+    watcher = watch(result.filePaths[0], reloadExt)
+  }
+  ;(async (): Promise<void> => {
+    watcher = watch(await getSetting('extensions-save-path'), reloadExt)
+  })()
 
   const startGame = async (gamemode: string): Promise<string> => {
     if (isGameRunning) return '游戏正在运行中'
@@ -169,24 +215,26 @@ app.whenReady().then(() => {
     return ''
   }
 
-  const ignoreFirstArg = (func) => {
-    return (_e, ...args): unknown => func(...args)
+  const ipcHandles: Record<string, (...args) => unknown> = {
+    'get-theme': getTheme,
+    'get-game-status': (): boolean => isGameRunning,
+    'start-game': startGame,
+    'choose-map': chooseMap,
+    'get-game-data': getGameData,
+    'get-extensions-info': getExtensionsInfo,
+    'get-enabled-extensions': getEnabledExtensions,
+    'set-enabled-extensions': setEnabledExtensions,
+    'import-extensions': importExtensions,
+    'get-settings': getSettings,
+    'get-setting': getSetting,
+    'change-settings': changeSettings,
+    'choose-extension-folder': chooseExtensionFolder
   }
+  Object.entries(ipcHandles).forEach(([channel, handler]) =>
+    ipcMain.handle(channel, (_e, ...args) => handler(...args))
+  )
 
-  ipcMain.handle('get-theme', getTheme)
-  ipcMain.handle('get-game-status', () => isGameRunning)
-  ipcMain.handle('start-game', ignoreFirstArg(startGame))
-  ipcMain.handle('choose-map', chooseMap)
-  ipcMain.handle('get-game-data', ignoreFirstArg(getGameData))
-  ipcMain.handle('get-extensions-info', getExtensionsInfo)
-  ipcMain.handle('get-enabled-extensions', getEnabledExtensions)
-  ipcMain.handle('set-enabled-extensions', ignoreFirstArg(setEnabledExtensions))
-  ipcMain.handle('import-extensions', () => importExtensions(mainWindow))
-  ipcMain.handle('get-settings', getSettings)
-  ipcMain.handle('get-setting', ignoreFirstArg(getSetting))
-  ipcMain.handle('change-settings', ignoreFirstArg(changeSettings))
-  ipcMain.handle('choose-extension-folder', () => chooseExtensionFolder(mainWindow))
-  ipcMain.on('control-window', ignoreFirstArg(controlWindow))
+  ipcMain.on('control-window', (_e, action) => controlWindow(action))
   ipcMain.on('update-config', updateConfig)
   ipcMain.on('generate-chessboard', (e, mapData: Map) => {
     e.returnValue = generateChessboard(mapData)
