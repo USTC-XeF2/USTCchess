@@ -1,27 +1,3 @@
-.chessboard-row {
-    display: flex;
-    justify-content: center;
+#board >div {
     margin: 0 auto;
-}
-
-.chessboard-cell {
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    text-align: center;
-    background-color: rgba(255, 255, 255, 0.1);
-}
-
-.chessboard-cell:hover {
-    background-color: rgba(0, 0, 0, 0.1);
-}
-
-#board .chessboard-cell {
-    outline: 1px solid black;
-}
-
-#iboard > canvas {
-    position: absolute;
-    top: 0;
-    left: 0;
 }

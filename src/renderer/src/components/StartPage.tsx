@@ -77,8 +77,10 @@ function MapPreload({ gameData }: { gameData?: GameData }): JSX.Element {
       children: (
         <ChessboardComponent
           chessboard={chessboard}
-          maxWidth="calc(30vw + 100px)"
-          maxHeight="calc(80vh - 50px)"
+          getSize={() => ({
+            width: 0.3 * window.innerWidth + 100,
+            height: 0.8 * window.innerHeight - 50
+          })}
           intersection={mapData.chessboard.intersection}
           getAvailableMoves={async (pos) => window.electronAPI.getAvailableMoves(pos)}
         />

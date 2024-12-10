@@ -1,14 +1,18 @@
 import '../assets/chessboard.css'
 
-import { CSSProperties, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { theme } from 'antd'
+import { Group, Layer, Stage, Rect, Text, Line } from 'react-konva'
+import { KonvaEventObject } from 'konva/lib/Node'
 
 import { Chessboard, Position } from 'src/types/chessboard'
 
 interface ChessboardComponentProps {
   chessboard: Chessboard
-  maxWidth: CSSProperties['maxWidth']
-  maxHeight: CSSProperties['maxHeight']
+  getSize: () => {
+    width: number
+    height: number
+  }
   intersection: boolean
   reverse?: boolean
   draggable?: boolean
@@ -22,8 +26,7 @@ const isEqualPosition = (pos1: Position, pos2: Position): boolean =>
 
 function ChessboardComponent({
   chessboard,
-  maxWidth,
-  maxHeight,
+  getSize,
   intersection,
   reverse = false,
   draggable = false,
@@ -31,21 +34,43 @@ function ChessboardComponent({
   canMove,
   move
 }: ChessboardComponentProps): JSX.Element {
+  const [maxWidth, setMaxWidth] = useState<number>(0)
+  const [maxHeight, setMaxHeight] = useState<number>(0)
+  const [hoverPosition, setHoverPosition] = useState<Position>()
   const [selectedPosition, setSelectedPosition] = useState<Position>()
-  const [draggingPiece, setDraggingPosition] = useState<Position>()
   const [availableMoves, setAvailableMoves] = useState<Position[]>([])
   const [canMoveCache, setCanMoveCache] = useState<boolean>()
+
+  useEffect(() => {
+    const handleResize = (): void => {
+      const { width, height } = getSize()
+      setMaxWidth(width)
+      setMaxHeight(height)
+    }
+
+    window.addEventListener('resize', handleResize)
+    handleResize()
+  }, [])
 
   const isInAvailableMoves = (pos: Position): boolean => {
     return availableMoves.some((p) => isEqualPosition(p, pos))
   }
 
+  const width = chessboard[0].length
+  const height = chessboard.length
+  const getReversePosition = (pos: Position): Position => [
+    reverse ? height - pos[0] - 1 : pos[0],
+    reverse ? width - pos[1] - 1 : pos[1]
+  ]
+
   const enterCell = async (pos: Position): Promise<void> => {
+    setHoverPosition(pos)
     setCanMoveCache(await canMove?.(pos))
     if (selectedPosition) return
     setAvailableMoves(await getAvailableMoves(pos))
   }
   const leaveCell = (): void => {
+    setHoverPosition(undefined)
     if (selectedPosition) return
     setAvailableMoves([])
   }
@@ -64,76 +89,143 @@ function ChessboardComponent({
     setSelectedPosition(undefined)
     setAvailableMoves([])
   }
-  const onDragStart = async (e, pos: Position): Promise<void> => {
-    if (selectedPosition || !canMoveCache) return e.preventDefault()
+  const onDragStart = async (e: KonvaEventObject<DragEvent>, pos: Position): Promise<void> => {
+    if (!canMoveCache) return e.target.stopDrag()
+    e.target.moveToTop()
+    setSelectedPosition(undefined)
     setAvailableMoves(await getAvailableMoves(pos))
-    setDraggingPosition(pos)
   }
-  const onDrop = (pos: Position): void => {
-    if (draggingPiece && isInAvailableMoves(pos)) {
-      move?.(draggingPiece, pos)
+  const onDragEnd = (e: KonvaEventObject<DragEvent>, pos: Position): void => {
+    const revPos = getReversePosition(pos)
+    const to: Position = getReversePosition([
+      Math.round(e.target.y() / cellSize),
+      Math.round(e.target.x() / cellSize)
+    ])
+    e.target.position({ x: revPos[1] * cellSize, y: revPos[0] * cellSize })
+    if (pos && isInAvailableMoves(to)) {
+      move?.(pos, to)
       setSelectedPosition(undefined)
-      setDraggingPosition(undefined)
       setAvailableMoves([])
     }
   }
 
   const { token } = theme.useToken()
 
-  const width = chessboard[0].length
-  const height = chessboard.length
-  const cellSize = `calc(min(${maxWidth} / ${width}, ${maxHeight} / ${height}))`
-  const getChessboardCell = (pos: Position): JSX.Element => {
+  const cellSize = Math.min(maxWidth / width, maxHeight / height)
+  const padding = intersection ? cellSize * 0.05 : 0
+  const borderColor = token.colorBgSpotlight
+
+  const getCell = (i: number, j: number): JSX.Element => {
+    const rvsi = reverse ? height - i - 1 : i
+    const rvsj = reverse ? width - j - 1 : j
+    const pos: Position = [rvsi, rvsj]
     const chess = chessboard[pos[0]][pos[1]]
-    const cellDraggable = draggable && Boolean(chess)
-    const cellStyle: React.CSSProperties = {
-      width: cellSize,
-      height: cellSize,
-      borderRadius: intersection ? '50%' : '0',
-      color: chess ? (chess.camp == 1 ? 'red' : chess.camp == 2 ? 'blue' : 'green') : 'black',
-      fontWeight: chess?.isChief ? 'bold' : 'normal',
-      cursor: cellDraggable ? 'grab' : 'pointer',
-      ...(isInAvailableMoves(pos)
-        ? { backgroundColor: chess ? token.colorErrorBgFilledHover : token.colorSuccessBgHover }
-        : selectedPosition && isEqualPosition(selectedPosition, pos)
-          ? { backgroundColor: token.colorWarningBgHover }
-          : {})
-    }
+    const isSelected = selectedPosition && isEqualPosition(selectedPosition, pos)
+    const isAvailable = isInAvailableMoves(pos)
+    const fillColor = isAvailable
+      ? chess
+        ? token.colorErrorBgFilledHover
+        : token.colorSuccessBgHover
+      : isSelected
+        ? token.colorWarningBgHover
+        : intersection && !chess
+          ? 'transparent'
+          : hoverPosition && isEqualPosition(hoverPosition, pos)
+            ? token.colorBorderSecondary
+            : token.colorBgElevated
     return (
-      <div
-        style={cellStyle}
-        className="chessboard-cell"
-        key={`cell-${pos[0]}-${pos[1]}`}
+      <Group
+        key={`cell-${i}-${j}`}
+        x={cellSize * j + padding}
+        y={cellSize * i + padding}
         onMouseEnter={() => enterCell(pos)}
         onMouseLeave={leaveCell}
         onClick={() => chooseCell(pos)}
-        draggable={cellDraggable}
+        draggable={draggable && Boolean(chess)}
         onDragStart={(e) => onDragStart(e, pos)}
-        onDragOver={(e) => {
-          if (isInAvailableMoves(pos)) return e.preventDefault()
-        }}
-        onDrop={() => onDrop(pos)}
+        onDragEnd={(e) => onDragEnd(e, pos)}
       >
-        {chess?.name}
-      </div>
+        <Rect
+          width={cellSize - padding * 2}
+          height={cellSize - padding * 2}
+          fill={fillColor}
+          stroke={borderColor}
+          strokeWidth={intersection && !chess ? 0 : cellSize * 0.01}
+          cornerRadius={intersection ? cellSize / 2 : 0}
+        />
+        {chess && (
+          <Text
+            x={cellSize * 0.05 + padding}
+            y={cellSize * 0.05 + padding}
+            width={cellSize * 0.9 - padding * 4}
+            height={cellSize * 0.9 - padding * 4}
+            text={chess.name}
+            fontSize={cellSize / 3.5}
+            align="center"
+            verticalAlign="middle"
+            fill={chess.camp === 1 ? 'red' : chess.camp === 2 ? 'blue' : 'green'}
+            fontStyle={chess.isChief ? 'bold' : 'normal'}
+            listening={false}
+          />
+        )}
+      </Group>
     )
   }
 
   return (
-    <div id={intersection ? 'iboard' : 'board'}>
-      {Array.from({ length: height }, (_, i) => {
-        const rvsi = reverse ? height - i - 1 : i
-        return (
-          <div className="chessboard-row" key={`row-${i}`}>
-            {Array.from({ length: width }, (_, j) => {
-              const rvsj = reverse ? width - j - 1 : j
-              const pos: Position = [rvsi, rvsj]
-              return getChessboardCell(pos)
-            })}
-          </div>
-        )
-      })}
-    </div>
+    <Stage id="board" width={cellSize * width} height={cellSize * height}>
+      <Layer>
+        {intersection && (
+          <>
+            {/* 绘制水平线 */}
+            {Array.from({ length: height }, (_, i) => (
+              <Line
+                key={`h-line-${i}`}
+                points={[
+                  cellSize * 0.5,
+                  cellSize * (i + 0.5),
+                  cellSize * (width - 0.5),
+                  cellSize * (i + 0.5)
+                ]}
+                stroke={borderColor}
+                strokeWidth={1}
+                listening={false}
+              />
+            ))}
+            {/* 绘制垂直线 */}
+            {Array.from({ length: width }, (_, j) => (
+              <Line
+                key={`v-line-${j}`}
+                points={[
+                  cellSize * (j + 0.5),
+                  cellSize * 0.5,
+                  cellSize * (j + 0.5),
+                  cellSize * (height - 0.5)
+                ]}
+                stroke={borderColor}
+                strokeWidth={1}
+                listening={false}
+              />
+            ))}
+          </>
+        )}
+        {Array.from({ length: height }, (_, i) =>
+          Array.from({ length: width }, (_, j) => getCell(i, j))
+        ).flat()}
+        {!intersection && (
+          <Rect
+            x={0}
+            y={0}
+            width={cellSize * width}
+            height={cellSize * height}
+            stroke={borderColor}
+            strokeWidth={5}
+            fill="transparent"
+            listening={false}
+          />
+        )}
+      </Layer>
+    </Stage>
   )
 }
 

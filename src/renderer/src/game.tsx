@@ -91,8 +91,10 @@ function Game(): JSX.Element {
       </Card>
       <ChessboardComponent
         chessboard={gameState?.chessboard || window.electronAPI.generateChessboard(mapData)}
-        maxWidth="90vw"
-        maxHeight="calc(90vh - 50px)"
+        getSize={() => ({
+          width: 0.9 * window.innerWidth,
+          height: 0.9 * window.innerHeight - 50
+        })}
         intersection={mapData.chessboard.intersection}
         reverse={camp === 2}
         draggable
