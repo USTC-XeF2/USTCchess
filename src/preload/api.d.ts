@@ -1,4 +1,4 @@
-import { Chessboard } from '../types/chessboard'
+import { Chess, Chessboard } from '../types/chessboard'
 import { Map } from '../types/map'
 import { ExtensionInfo, ExtNameList } from '../types/extension'
 import { Settings } from '../types/settings'
@@ -17,6 +17,7 @@ interface API {
   chooseMap: () => Promise<boolean>
   getGameData: (reload?: boolean) => Promise<GameData>
   generateChessboard: (mapData: Map) => Chessboard
+  showChessInfo: (chess: Chess, reverse?: boolean) => void
   getAvailableMoves: (pos: Position) => Position[]
   getExtensionsInfo: () => Promise<ExtensionInfo[]>
   getEnabledExtensions: () => Promise<ExtNameList>

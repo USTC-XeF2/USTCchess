@@ -1,6 +1,6 @@
 {
 	"id": "flxg-chess",
-	"version": "1.0.1",
+	"version": "1.1.0",
 	"name": "废理兴工棋",
 	"author": "Lithium",
 	"description": "来和坑坑一起废理兴工！",
@@ -165,7 +165,7 @@
 		},
 		{
 			"id": 9,
-			"name": "大物实验",
+			"name": "大物\n实验",
 			"camp": 1,
 			"moveRanges": [
 				{ "direction": 1 },
@@ -188,7 +188,7 @@
 		},
 		{
 			"id": 10,
-			"name": "系统控制",
+			"name": "系统\n控制",
 			"camp": 2,
 			"moveRanges": [
 				{ "direction": 3 },
@@ -305,6 +305,6 @@
 	},
 	"extensions": {
 		"promote": "<2",
-		"flxg-chess": "1.0"
+		"flxg-chess": "1.1"
 	}
 }

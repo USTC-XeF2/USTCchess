@@ -1,5 +1,5 @@
-import { randomInt } from 'node:crypto'
-import { createServer } from 'node:net'
+import { randomInt } from 'crypto'
+import { networkInterfaces } from 'os'
 import { RawData, WebSocket, WebSocketServer } from 'ws'
 
 import { Position } from '../types/chessboard'
@@ -9,42 +9,51 @@ import { API } from '../utils/chessboard'
 import { generateChessboard } from '../utils/map'
 import { GameData } from '../utils/game'
 
-export const getUnusedPort = async (maxTryTimes: number = 10): Promise<number> => {
-  for (let i = 0; i < maxTryTimes; i++) {
-    const port = randomInt(10000, 65535)
-    const server = createServer()
-    try {
-      await new Promise<void>((resolve, reject) => {
-        server.once('error', (err) => {
-          server.close(() => reject(err))
-        })
-        server.once('listening', () => {
-          server.close(() => resolve())
-        })
-        server.listen(port)
-      })
-      return port
-    } catch {
-      // pass
+function getLocalIPAddress(): string | null {
+  const interfaces = networkInterfaces()
+  for (const iface of Object.values(interfaces)) {
+    if (iface) {
+      for (const addr of iface) {
+        if (addr.family === 'IPv4' && !addr.internal) {
+          return addr.address
+        }
+      }
     }
   }
-  throw new Error('Failed to find an unused port.')
+  return null
 }
 
 export class GameServer extends GameData {
   // WebSocket
+  address: string
   private wss: WebSocketServer
+  private shuttingDown: boolean = false
   private playerList: Map<WebSocket, number> = new Map()
   // Game
   private currentTurn: number = 0
   private isGameEnd: boolean = false
-  constructor(mapData: GameMap, extensions: Extension[], port: number, openToLAN: boolean = false) {
+  constructor(mapData: GameMap, extensions: Extension[], openToLAN: boolean = false) {
     super()
+    const host = (openToLAN && getLocalIPAddress()) || 'localhost'
+    let port = 0
+    let wss: WebSocketServer | null = null
+    let retry = 10
+    while (retry--) {
+      try {
+        port = randomInt(10000, 65536)
+        wss = new WebSocketServer({ port, host: host })
+        break
+      } catch {
+        // pass
+      }
+    }
+    if (!wss) throw new Error('Unable to get unused port')
+    this.address = `${host}:${port}`
+    this.wss = wss
+    this.wss.on('connection', this.onConnection.bind(this))
     this.mapData = mapData
     this.loadExtensions(extensions)
     this.chessboard = generateChessboard(mapData)
-    this.wss = new WebSocketServer({ port, host: openToLAN ? '0.0.0.0' : 'localhost' })
-    this.wss.on('connection', this.onConnection.bind(this))
   }
 
   send(ws: WebSocket, type: string, data?: unknown, id?: string): void {
@@ -65,7 +74,7 @@ export class GameServer extends GameData {
     }
     this.playerList.set(ws, this.wss.clients.size)
     ws.on('message', (data) => this.processMsg(ws, data))
-    ws.on('close', this.wss.close)
+    ws.on('close', this.close.bind(this))
     this.send(ws, 'connect-success', { camp: this.wss.clients.size, mapData: this.mapData })
     if (this.wss.clients.size === 2) {
       this.startGame()
@@ -113,6 +122,10 @@ export class GameServer extends GameData {
   }
 
   close(): void {
+    if (this.shuttingDown) return
+    this.shuttingDown = true
+    const code = this.isGameEnd ? 2000 : 4004
+    this.wss.clients.forEach((ws) => ws.close(code))
     this.wss.close()
   }
 

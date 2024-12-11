@@ -1,0 +1,229 @@
+{
+	"id": "Chinese-chess",
+	"version": "1.0.0",
+	"name": "中国象棋",
+	"author": "XeF2",
+	"description": "中国象棋还原版",
+	"cards": [
+		{
+			"id": 1,
+			"name": "帅",
+			"camp": 1,
+			"moveRanges": [
+				{ "direction": 1 },
+				{ "direction": 3 },
+				{ "direction": 5 },
+				{ "direction": 7 }
+			],
+			"isChief": true,
+			"attr": {
+				"allowedArea": "row>=7&&col>=3&&col<=5"
+			}
+		},
+		{
+			"id": 2,
+			"name": "将",
+			"camp": 2,
+			"moveRanges": [
+				{ "direction": 1 },
+				{ "direction": 3 },
+				{ "direction": 5 },
+				{ "direction": 7 }
+			],
+			"isChief": true,
+			"attr": {
+				"allowedArea": "row<=2&&col>=3&&col<=5"
+			}
+		},
+		{
+			"id": 3,
+			"name": "仕",
+			"camp": 1,
+			"moveRanges": [
+				{ "direction": 2 },
+				{ "direction": 4 },
+				{ "direction": 6 },
+				{ "direction": 8 }
+			],
+			"attr": {
+				"allowedArea": "row>=7&&col>=3&&col<=5"
+			}
+		},
+		{
+			"id": 4,
+			"name": "士",
+			"camp": 2,
+			"moveRanges": [
+				{ "direction": 2 },
+				{ "direction": 4 },
+				{ "direction": 6 },
+				{ "direction": 8 }
+			],
+			"attr": {
+				"allowedArea": "row<=2&&col>=3&&col<=5"
+			}
+		},
+		{
+			"id": 5,
+			"name": "相",
+			"camp": 1,
+			"moveRanges": [
+				{ "direction": 2, "maxstep": 2 },
+				{ "direction": 4, "maxstep": 2 },
+				{ "direction": 6, "maxstep": 2 },
+				{ "direction": 8, "maxstep": 2 }
+			],
+			"attr": {
+				"allowedArea": "row>=5"
+			}
+		},
+		{
+			"id": 6,
+			"name": "象",
+			"camp": 2,
+			"moveRanges": [
+				{ "direction": 2, "maxstep": 2 },
+				{ "direction": 4, "maxstep": 2 },
+				{ "direction": 6, "maxstep": 2 },
+				{ "direction": 8, "maxstep": 2 }
+			],
+			"attr": {
+				"allowedArea": "row<=4"
+			}
+		},
+		{
+			"id": 7,
+			"name": "馬",
+			"camp": 1,
+			"moveRanges": []
+		},
+		{
+			"id": 8,
+			"name": "馬",
+			"camp": 2,
+			"moveRanges": []
+		},
+		{
+			"id": 9,
+			"name": "車",
+			"camp": 1,
+			"moveRanges": [
+				{ "direction": 1, "maxstep": -1 },
+				{ "direction": 3, "maxstep": -1 },
+				{ "direction": 5, "maxstep": -1 },
+				{ "direction": 7, "maxstep": -1 }
+			]
+		},
+		{
+			"id": 10,
+			"name": "車",
+			"camp": 2,
+			"moveRanges": [
+				{ "direction": 1, "maxstep": -1 },
+				{ "direction": 3, "maxstep": -1 },
+				{ "direction": 5, "maxstep": -1 },
+				{ "direction": 7, "maxstep": -1 }
+			]
+		},
+		{
+			"id": 11,
+			"name": "炮",
+			"camp": 1,
+			"moveRanges": [
+				{ "direction": 1, "maxstep": -1 },
+				{ "direction": 3, "maxstep": -1 },
+				{ "direction": 5, "maxstep": -1 },
+				{ "direction": 7, "maxstep": -1 }
+			]
+		},
+		{
+			"id": 12,
+			"name": "炮",
+			"camp": 2,
+			"moveRanges": [
+				{ "direction": 1, "maxstep": -1 },
+				{ "direction": 3, "maxstep": -1 },
+				{ "direction": 5, "maxstep": -1 },
+				{ "direction": 7, "maxstep": -1 }
+			]
+		},
+		{
+			"id": 13,
+			"name": "兵",
+			"camp": 1,
+			"moveRanges": [
+				{ "direction": 1 }
+			],
+			"attr": {
+				"promoteConditions": "row<=4",
+				"promotedName": "兵",
+				"promotedMoveRanges": [
+					{ "direction": 1 },
+					{ "direction": 3 },
+					{ "direction": 7 }
+				]
+			}
+		},
+		{
+			"id": 14,
+			"name": "卒",
+			"camp": 2,
+			"moveRanges": [
+				{ "direction": 5 }
+			],
+			"attr": {
+				"promoteConditions": "row>=5",
+				"promotedName": "卒",
+				"promotedMoveRanges": [
+					{ "direction": 3 },
+					{ "direction": 5 },
+					{ "direction": 7 }
+				]
+			}
+		}
+	],
+	"chessboard": {
+		"width": 9,
+		"height": 10,
+		"intersection": true,
+		"init": {
+			"[0, 0]": 10,
+			"[0, 1]": 8,
+			"[0, 2]": 6,
+			"[0, 3]": 4,
+			"[0, 4]": 2,
+			"[0, 5]": 4,
+			"[0, 6]": 6,
+			"[0, 7]": 8,
+			"[0, 8]": 10,
+			"[2, 1]": 12,
+			"[2, 7]": 12,
+			"[3, 0]": 14,
+			"[3, 2]": 14,
+			"[3, 4]": 14,
+			"[3, 6]": 14,
+			"[3, 8]": 14,
+			"[6, 0]": 13,
+			"[6, 2]": 13,
+			"[6, 4]": 13,
+			"[6, 6]": 13,
+			"[6, 8]": 13,
+			"[7, 1]": 11,
+			"[7, 7]": 11,
+			"[9, 0]": 9,
+			"[9, 1]": 7,
+			"[9, 2]": 5,
+			"[9, 3]": 3,
+			"[9, 4]": 1,
+			"[9, 5]": 3,
+			"[9, 6]": 5,
+			"[9, 7]": 7,
+			"[9, 8]": 9
+		}
+	},
+	"extensions": {
+		"promote": "<2",
+		"Chinese-chess": "1.0.0",
+		"allowed-area": "<2"
+	}
+}

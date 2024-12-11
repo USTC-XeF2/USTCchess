@@ -125,12 +125,12 @@ function StartPage(): JSX.Element {
       message.info('未选择地图文件')
       return
     }
-    const error = await window.electronAPI.startGame(currentGamemode)
-    if (error) {
-      message.error(error)
-    } else {
-      setGameRunning(true)
-    }
+    window.electronAPI
+      .startGame(currentGamemode)
+      .then((v) => {
+        if (v) setGameRunning(true)
+      })
+      .catch((e) => message.error(e.message.substring(e.message.lastIndexOf(':') + 1).trim()))
   }
 
   const chooseMap: ButtonProps['onClick'] = async () => {

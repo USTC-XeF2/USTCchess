@@ -12,6 +12,7 @@ const api: API = {
   chooseMap: () => ipcRenderer.invoke('choose-map'),
   getGameData: (reload = false) => ipcRenderer.invoke('get-game-data', reload),
   generateChessboard: (mapData) => ipcRenderer.sendSync('generate-chessboard', mapData),
+  showChessInfo: (chess, reverse = false) => ipcRenderer.send('show-chess-info', chess, reverse),
   getAvailableMoves: (pos) => ipcRenderer.sendSync('get-available-moves', pos),
   getExtensionsInfo: () => ipcRenderer.invoke('get-extensions-info'),
   getEnabledExtensions: () => ipcRenderer.invoke('get-enabled-extensions'),

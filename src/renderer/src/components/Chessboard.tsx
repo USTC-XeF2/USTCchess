@@ -101,7 +101,7 @@ function ChessboardComponent({
       Math.round(e.target.y() / cellSize),
       Math.round(e.target.x() / cellSize)
     ])
-    e.target.position({ x: revPos[1] * cellSize, y: revPos[0] * cellSize })
+    e.target.position({ x: revPos[1] * cellSize + padding, y: revPos[0] * cellSize + padding })
     if (pos && isInAvailableMoves(to)) {
       move?.(pos, to)
       setSelectedPosition(undefined)
@@ -116,9 +116,7 @@ function ChessboardComponent({
   const borderColor = token.colorBgSpotlight
 
   const getCell = (i: number, j: number): JSX.Element => {
-    const rvsi = reverse ? height - i - 1 : i
-    const rvsj = reverse ? width - j - 1 : j
-    const pos: Position = [rvsi, rvsj]
+    const pos: Position = getReversePosition([i, j])
     const chess = chessboard[pos[0]][pos[1]]
     const isSelected = selectedPosition && isEqualPosition(selectedPosition, pos)
     const isAvailable = isInAvailableMoves(pos)
@@ -144,6 +142,7 @@ function ChessboardComponent({
         draggable={draggable && Boolean(chess)}
         onDragStart={(e) => onDragStart(e, pos)}
         onDragEnd={(e) => onDragEnd(e, pos)}
+        onContextMenu={() => chess && window.electronAPI.showChessInfo(chess, reverse)}
       >
         <Rect
           width={cellSize - padding * 2}
@@ -177,7 +176,6 @@ function ChessboardComponent({
       <Layer>
         {intersection && (
           <>
-            {/* 绘制水平线 */}
             {Array.from({ length: height }, (_, i) => (
               <Line
                 key={`h-line-${i}`}
@@ -192,7 +190,6 @@ function ChessboardComponent({
                 listening={false}
               />
             ))}
-            {/* 绘制垂直线 */}
             {Array.from({ length: width }, (_, j) => (
               <Line
                 key={`v-line-${j}`}
@@ -212,7 +209,9 @@ function ChessboardComponent({
         {Array.from({ length: height }, (_, i) =>
           Array.from({ length: width }, (_, j) => getCell(i, j))
         ).flat()}
-        {!intersection && (
+      </Layer>
+      {!intersection && (
+        <Layer>
           <Rect
             x={0}
             y={0}
@@ -223,8 +222,8 @@ function ChessboardComponent({
             fill="transparent"
             listening={false}
           />
-        )}
-      </Layer>
+        </Layer>
+      )}
     </Stage>
   )
 }

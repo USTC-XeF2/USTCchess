@@ -2,10 +2,11 @@ import { app, BrowserWindow, dialog, ipcMain, nativeTheme } from 'electron'
 import { FSWatcher, unwatchFile, watch, watchFile } from 'node:fs'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 
-import { Position } from '../types/chessboard'
+import { Chess, Position } from '../types/chessboard'
 import { Map } from '../types/map'
 import { Extension } from '../types/extension'
 import { GameData as GameDataInterface } from '../types/game'
+import { getChessInfo } from '../utils/chessboard'
 import { generateChessboard } from '../utils/map'
 import { getInfo } from '../utils/extension'
 import { GameData } from '../utils/game'
@@ -27,7 +28,7 @@ import {
   openExtensionFolder
 } from './main'
 
-import { GameServer, getUnusedPort } from './game-server'
+import { GameServer } from './game-server'
 import { checkOnClose, createClients } from './game'
 
 class PreloadGameData extends GameData {
@@ -190,29 +191,25 @@ app.whenReady().then(() => {
     watcher = watch(await getSetting('extensions-save-path'), reloadExt)
   })()
 
-  const startGame = async (gamemode: string): Promise<string> => {
-    if (isGameRunning) return '游戏正在运行中'
+  const startGame = async (gamemode: string): Promise<boolean> => {
+    if (isGameRunning) throw '游戏正在运行中'
+    const getMapData = async (): Promise<Map> => {
+      const mapData = gameData.getInterface().mapData
+      if (!mapData) throw '未选择地图文件'
+      if ((await getSetting('check-extensions')) && !gameData.isAllExtLoaded)
+        throw '地图所需扩展未启用或版本错误'
+      return mapData
+    }
     if (gamemode === 'local-mode') {
-      try {
-        const mapData = gameData.getInterface().mapData
-        if (!mapData) return '未选择地图文件'
-        if ((await getSetting('check-extensions')) && !gameData.isAllExtLoaded)
-          return '地图所需扩展未启用或版本错误'
-        const port = await getUnusedPort()
-        const server = new GameServer(mapData, gameData.getExtensions(), port)
-        createClients(`localhost:${port}`, 2, mapData.name + '-本地模式', () => {
-          server.close()
-          restoreMainWindow()
-        })
-      } catch {
-        return 'Unknown error.'
-      }
+      const mapData = await getMapData()
+      const server = new GameServer(mapData, gameData.getExtensions())
+      createClients(server.address, 2, restoreMainWindow)
     } else {
-      return `The gamemode '${gamemode}' has not been implemented yet.`
+      throw `The gamemode '${gamemode}' has not been implemented yet.`
     }
     isGameRunning = true
     if (await getSetting('auto-minimize-mainwindow')) mainWindow.minimize()
-    return ''
+    return isGameRunning
   }
 
   const ipcHandles: Record<string, (...args) => unknown> = {
@@ -238,6 +235,18 @@ app.whenReady().then(() => {
   ipcMain.on('update-config', updateConfig)
   ipcMain.on('generate-chessboard', (e, mapData: Map) => {
     e.returnValue = generateChessboard(mapData)
+  })
+  ipcMain.on('show-chess-info', (e, chess: Chess, reverse: boolean = false) => {
+    const window = BrowserWindow.fromWebContents(e.sender)
+    if (window) {
+      const [title, detail] = getChessInfo(chess, reverse)
+      dialog.showMessageBox(window, {
+        type: 'info',
+        title: '棋子信息',
+        message: title,
+        detail: detail
+      })
+    }
   })
   ipcMain.on('get-available-moves', (e, pos: Position) => {
     e.returnValue = gameData.getAvailableMoves(pos)

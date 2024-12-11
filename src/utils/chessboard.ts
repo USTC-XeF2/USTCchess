@@ -59,6 +59,30 @@ const directionOffsets: Position[] = [
   [-1, -1]
 ]
 
+export function getChessInfo(chess: Chess, reverse: boolean): [string, string] {
+  let text = `阵营：${['中立', '红方', '蓝方'][chess.camp]}\n移动范围：`
+  const grid = Array(3)
+    .fill(null)
+    .map(() => Array(3).fill('–'))
+  grid[1][1] = '○'
+
+  for (const moveRange of chess.moveRanges) {
+    const pos = directionOffsets[reverse ? (moveRange.direction + 3) % 8 : moveRange.direction - 1]
+    if (pos) {
+      grid[pos[0] + 1][pos[1] + 1] =
+        !moveRange.maxstep || moveRange.maxstep === 1
+          ? '●'
+          : moveRange.maxstep === -1
+            ? 'x'
+            : moveRange.maxstep.toString()
+    }
+  }
+
+  const gridText = grid.map((row) => row.join('  ')).join('\n')
+  text += `\n${gridText}`
+  return [`${chess.name}${chess.isChief ? '(首领棋子)' : ''}`, text]
+}
+
 export const API = {
   canEat(camp1: number, camp2: number): boolean {
     return camp1 !== 0 && camp2 !== 0 && camp1 !== camp2

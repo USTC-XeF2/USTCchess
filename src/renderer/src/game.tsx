@@ -77,16 +77,18 @@ function Game(): JSX.Element {
           <Typography.Text>
             本方阵营：<span style={campStyle}>▇</span>
           </Typography.Text>
-          {gameState?.currentTurn ? (
-            <Typography.Text>
-              当前回合：
-              <span style={{ color: getColor(gameState?.currentTurn) }}>
-                {gameState.currentTurn == camp ? '己方回合' : '对方回合'}
-              </span>
-            </Typography.Text>
-          ) : (
-            <Spin tip="等待游戏开始..." fullscreen delay={100} />
-          )}
+          <Typography.Text>
+            {gameState?.currentTurn ? (
+              <>
+                当前回合：
+                <span style={{ color: getColor(gameState?.currentTurn) }}>
+                  {gameState.currentTurn == camp ? '己方回合' : '对方回合'}
+                </span>
+              </>
+            ) : (
+              '等待游戏开始'
+            )}
+          </Typography.Text>
         </Flex>
       </Card>
       <ChessboardComponent

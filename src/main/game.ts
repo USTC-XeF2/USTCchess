@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain, Menu, shell } from 'electron'
+import { BrowserWindow, dialog, ipcMain, Menu, MenuItemConstructorOptions, shell } from 'electron'
 import { join } from 'node:path'
 import { RawData, WebSocket } from 'ws'
 import { is } from '@electron-toolkit/utils'
@@ -11,7 +11,7 @@ import { Response } from '../types/game'
 import { getInfo } from '../utils/map'
 import { GameData } from '../utils/game'
 
-function createGameWindow(getInfo: () => [string, string]): BrowserWindow {
+function createGameWindow(menuTemplate: MenuItemConstructorOptions[]): BrowserWindow {
   const gameWindow = new BrowserWindow({
     width: 480,
     height: 720,
@@ -24,21 +24,7 @@ function createGameWindow(getInfo: () => [string, string]): BrowserWindow {
     }
   })
 
-  const menu = Menu.buildFromTemplate([
-    {
-      label: '查看地图信息',
-      click: (): void => {
-        const [title, detail] = getInfo()
-        dialog.showMessageBox({
-          type: 'info',
-          title: '地图信息',
-          message: title,
-          detail: detail
-        })
-      }
-    }
-  ])
-
+  const menu = Menu.buildFromTemplate(menuTemplate)
   gameWindow.setMenu(menu)
 
   gameWindow.on('ready-to-show', () => {
@@ -61,36 +47,66 @@ function createGameWindow(getInfo: () => [string, string]): BrowserWindow {
 class GameClient extends GameData {
   id: number
   window: BrowserWindow
+  close: (content?: string) => void
   // WebSocket
   private ws: WebSocket
-  private close: (content?: string) => void
-  private timeout: number
+  private timeout: number = 20000
   private isConnectSuccess: boolean = false
   private messageHandlers: Map<string, (response: Response) => void> = new Map()
   // Game
   private camp: number = 0
   isGameEnd: boolean = false
-  constructor(address: string, close: () => void, timeout: number = 5000) {
+  constructor(address: string, close: () => void, isLocal: boolean) {
     super()
     this.ws = new WebSocket(`ws://${address}`)
+    this.ws.on('message', this.onMessage.bind(this))
+    this.ws.on('error', () => setTimeout(() => this.close('无法连接到服务器'), 500))
+    this.ws.on('close', (code) => {
+      this.isConnectSuccess = false
+      if (code === 4004) this.close(isLocal ? '' : '对方已断开连接')
+    })
     this.close = (content?): void => {
+      if (this.isConnectSuccess) this.ws.close()
       if (content) dialog.showErrorBox('错误', content)
-      this.ws.close()
       close()
     }
-    this.timeout = timeout
-    this.ws.on('message', this.onMessage.bind(this))
-    this.window = createGameWindow(() => {
-      if (this.mapData) {
-        return getInfo(this.mapData)
-      } else {
-        return ['未获取到地图信息', '']
+
+    const menuTemplate = [
+      {
+        label: '查看地图信息',
+        click: (): void => {
+          if (this.mapData) {
+            const [msg, detail] = getInfo(this.mapData)
+            dialog.showMessageBox({
+              type: 'info',
+              title: '地图信息',
+              message: msg,
+              detail: detail
+            })
+          } else {
+            dialog.showErrorBox('错误', '未获取到地图信息')
+          }
+        }
       }
-    })
+    ]
+    if (!isLocal) {
+      menuTemplate.push({
+        label: '查看服务器信息',
+        click: (): void => {
+          dialog.showMessageBox({
+            type: 'info',
+            title: '服务器信息',
+            message: `地址：${address}`
+          })
+        }
+      })
+    }
+    this.window = createGameWindow(menuTemplate)
+    this.window.setTitle(`USTC棋 - ${isLocal ? '本地模式' : '联机模式'}`)
     this.id = this.window.webContents.id
     setTimeout(() => {
       if (!this.isConnectSuccess) {
-        this.close('连接超时')
+        this.ws.close(4000)
       }
     }, this.timeout)
   }
@@ -119,6 +135,7 @@ class GameClient extends GameData {
           if (await getSetting('check-extensions'))
             if (!checkExtensions(this.extensions, this.mapData!.extensions))
               this.close('地图所需扩展未启用或版本错误')
+          this.window.setTitle(`${mapData.name} - ${this.window.getTitle().split(' - ')[1]}`)
           this.window.webContents.send('connect-success')
           this.isConnectSuccess = true
           break
@@ -200,8 +217,9 @@ export const checkOnClose = async (): Promise<boolean> => {
     type: 'warning',
     buttons: ['确定', '取消'],
     cancelId: 1,
-    title: '关闭游戏',
-    message: '游戏正在运行中，确定要退出游戏吗？'
+    title: '退出游戏',
+    message: '游戏正在运行中，确定要退出游戏吗？',
+    noLink: true
   })
   return res.response === 0
 }
@@ -209,10 +227,21 @@ export const checkOnClose = async (): Promise<boolean> => {
 export function createClients(
   address: string,
   clientCount: number,
-  title: string,
-  stopGame: () => void
+  stopGame: () => void,
+  isLocal: boolean = true
 ): void {
-  const gameClients = Array.from({ length: clientCount }, () => new GameClient(address, stopGame))
+  let isClosed = false
+  const close = (): void => {
+    if (isClosed) return
+    isClosed = true
+    gameClients.forEach((c) => c.window.destroy())
+    ipcMain.removeHandler('contact')
+    stopGame()
+  }
+  const gameClients = Array.from(
+    { length: clientCount },
+    () => new GameClient(address, close, isLocal)
+  )
   ipcMain.handle('contact', async (_e, type: string, data: unknown) => {
     for (const c of gameClients) {
       if (c.id === _e.sender.id) return await c.contact(type, data)
@@ -220,15 +249,10 @@ export function createClients(
     throw new Error('The window is not a game window.')
   })
   for (const c of gameClients) {
-    c.window.setTitle(title)
     c.window.on('close', async (e) => {
       e.preventDefault()
       if (c.isGameEnd || (await checkOnClose())) {
-        for (const c of gameClients) {
-          c.window.destroy()
-        }
-        ipcMain.removeHandler('contact')
-        stopGame()
+        c.close()
       }
     })
   }
