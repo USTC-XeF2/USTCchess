@@ -180,6 +180,8 @@ class GameClient extends GameData {
       }
       case 'get-available-moves':
         return { status: 'success', data: this.getAvailableMoves(data as Position) }
+      case 'get-is-checked':
+        return { status: 'success', data: this.getIsChecked() }
       case 'move': {
         return await this.contactToServer(type, data)
       }
@@ -209,6 +211,22 @@ class GameClient extends GameData {
         }
       }, this.timeout)
     })
+  }
+
+  getIsChecked(): Position[] {
+    const myChiefPos: Position[] = []
+    const opponentMoves = new Set<string>()
+    for (let i = 0; i < this.chessboard.length; i++) {
+      for (let j = 0; j < this.chessboard[i].length; j++) {
+        const chess = this.chessboard[i][j]
+        if (chess?.camp === this.camp) {
+          if (chess.isChief) myChiefPos.push([i, j])
+        } else {
+          this.getAvailableMoves([i, j]).forEach((p) => opponentMoves.add(JSON.stringify(p)))
+        }
+      }
+    }
+    return myChiefPos.filter((p) => opponentMoves.has(JSON.stringify(p)))
   }
 }
 
@@ -242,6 +260,12 @@ export function createClients(
     { length: clientCount },
     () => new GameClient(address, close, isLocal)
   )
+  if (gameClients.length === 2) {
+    const position = gameClients[0].window.getPosition()
+    const windowWidth = gameClients[0].window.getBounds().width
+    gameClients[0].window.setPosition(position[0] - windowWidth * 0.6, position[1])
+    gameClients[1].window.setPosition(position[0] + windowWidth * 0.6, position[1])
+  }
   ipcMain.handle('contact', async (_e, type: string, data: unknown) => {
     for (const c of gameClients) {
       if (c.id === _e.sender.id) return await c.contact(type, data)

@@ -9,6 +9,7 @@ import { api } from './index'
 
 interface API {
   on: (type: string, callback: (data?: unknown) => void) => void
+  off: (type: string) => void
   getTheme: () => Promise<{ isDark: boolean; primaryColor: string }>
   controlWindow: (action: string) => void
   updateConfig: () => void

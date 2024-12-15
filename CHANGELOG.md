@@ -1,5 +1,20 @@
 # Change Log
 
+## [0.2.1] - 2024-12-15
+
+### Added
+
+- Check prompt.
+
+### Changed
+
+- The window will automatically stagger in local mode.
+
+### Fixed
+
+- Auto reloading maps does not take effect when manually selecting extensions.
+- The last step before the end of the game may not be displayed.
+
 ## [0.2.0] - 2024-12-11
 
 ### Added

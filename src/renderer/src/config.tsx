@@ -23,7 +23,9 @@ function AppConfig({ children }: { children: JSX.Element }): JSX.Element {
       })
     }
     reload()
+
     window.electronAPI.on('update-config', reload)
+    return (): void => window.electronAPI.off('update-config')
   }, [])
 
   const token = theme.getDesignToken(appTheme)

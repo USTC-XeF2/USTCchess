@@ -50,12 +50,12 @@ export class GameData {
     return availableMoves
   }
 
-  afterMove(from: Position, to: Position): void {
+  afterMove(from: Position, to: Position, turn: number): void {
     for (const ext of this.extensions) {
       try {
-        ext.afterMove?.(this.chessboard, from, to)
+        ext.afterMove?.(this.chessboard, from, to, turn)
       } catch {
-        //pass
+        // pass
       }
     }
   }
@@ -66,7 +66,7 @@ export class GameData {
       try {
         ext.onDeath?.(this.chessboard, pos, oldChess)
       } catch {
-        //pass
+        // pass
       }
     }
   }

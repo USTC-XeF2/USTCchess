@@ -20,8 +20,12 @@ function ExtensionPage(): JSX.Element {
     }
     fetchData()
 
-    window.electronAPI.on('update-extensions', fetchData)
     window.addEventListener('update-mainwindow', fetchData)
+    window.electronAPI.on('update-extensions', fetchData)
+    return (): void => {
+      window.removeEventListener('update-mainwindow', fetchData)
+      window.electronAPI.off('update-extensions')
+    }
   }, [])
 
   const onChange: TransferProps['onChange'] = async (nextTargetKeys) => {

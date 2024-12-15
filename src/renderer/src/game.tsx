@@ -32,6 +32,7 @@ const getColor = (camp?: number): string => (camp == 1 ? 'red' : camp == 2 ? 'bl
 function Game(): JSX.Element {
   const [info, setInfo] = useState<Info>()
   const [gameState, setGameState] = useState<GameState>()
+  const [isCheckedPos, setIsCheckedPos] = useState<Position[]>([])
   const [gameResult, setGameResult] = useState<GameResult>()
 
   const getInfo = (): Promise<void> =>
@@ -52,10 +53,21 @@ function Game(): JSX.Element {
       getGameState()
     })
     window.electronAPI.on('game-start', getGameState)
-    window.electronAPI.on('change-turn', getGameState)
+    window.electronAPI.on('change-turn', async () => {
+      await getGameState()
+      window.electronAPI.contact('get-is-checked').then((res) => {
+        if (res.status === 'success') setIsCheckedPos(res.data as Position[])
+      })
+    })
     window.electronAPI.on('game-end', (data) => {
       setGameResult(data as GameResult)
     })
+    return (): void => {
+      window.electronAPI.off('connect-success')
+      window.electronAPI.off('game-start')
+      window.electronAPI.off('change-turn')
+      window.electronAPI.off('game-end')
+    }
   }, [])
 
   if (!info) return <Spin tip="连接服务器中..." fullscreen delay={100} />
@@ -100,6 +112,7 @@ function Game(): JSX.Element {
         intersection={mapData.chessboard.intersection}
         reverse={camp === 2}
         draggable
+        checkedPos={isCheckedPos}
         getAvailableMoves={getAvailableMoves}
         canMove={canMove}
         move={(from, to) => window.electronAPI.contact('move', { from, to })}

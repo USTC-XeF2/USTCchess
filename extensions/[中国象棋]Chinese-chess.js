@@ -1,7 +1,7 @@
 exports.key = 'Chinese-chess'
 exports.name = '中国象棋'
 exports.author = 'XeF2'
-exports.version = '1.0.0'
+exports.version = '1.0.1'
 exports.modifyMove = (chessboard, pos, availableMoves) => {
   const chess = chessboard[pos[0]][pos[1]]
   if (chess.id === 5 || chess.id === 6) {
@@ -50,20 +50,18 @@ exports.modifyMove = (chessboard, pos, availableMoves) => {
     })
   }
 }
-exports.afterMove = (chessboard, from, to) => {
-  const chess = chessboard[to[0]][to[1]]
-  if (chess.isChief) {
-    const dir = chess.camp === 1 ? 1 : 5
-    for (
-      let newPos = exports.API.getNewPos(to, dir);
-      exports.API.isInChessboard(chessboard, newPos);
-      newPos = exports.API.getNewPos(newPos, dir)
-    ) {
-      const targetChess = exports.API.getChess(chessboard, newPos)
-      if (targetChess) {
-        if (targetChess.isChief && exports.API.canEat(chess.camp, targetChess.camp)) {
-          exports.API.endGame(targetChess.camp, '将帅不能照面')
+exports.afterMove = (chessboard, _from, _to, turn) => {
+  for (let j = 3; j < 6; j++) {
+    let hasChief = false
+    for (let i = 0; i < 10; i++) {
+      const chess = exports.API.getChess(chessboard, [i, j])
+      if (chess?.isChief) {
+        if (hasChief) {
+          exports.API.endGame(3 - turn, '将帅不能照面')
+        } else {
+          hasChief = true
         }
+      } else if (chess && hasChief) {
         break
       }
     }

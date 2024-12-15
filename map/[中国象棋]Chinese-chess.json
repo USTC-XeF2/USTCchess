@@ -1,6 +1,6 @@
 {
 	"id": "Chinese-chess",
-	"version": "1.0.0",
+	"version": "1.0.1",
 	"name": "中国象棋",
 	"author": "XeF2",
 	"description": "中国象棋还原版",
@@ -223,7 +223,7 @@
 	},
 	"extensions": {
 		"promote": "<2",
-		"Chinese-chess": "1.0.0",
+		"Chinese-chess": "1.0",
 		"allowed-area": "<2"
 	}
 }

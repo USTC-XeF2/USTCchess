@@ -220,11 +220,17 @@ app.whenReady().then(() => {
     'get-game-data': getGameData,
     'get-extensions-info': getExtensionsInfo,
     'get-enabled-extensions': getEnabledExtensions,
-    'set-enabled-extensions': setEnabledExtensions,
+    'set-enabled-extensions': async (l) => {
+      await setEnabledExtensions(l)
+      reloadMap()
+    },
     'import-extensions': importExtensions,
     'get-settings': getSettings,
     'get-setting': getSetting,
-    'change-settings': changeSettings,
+    'change-settings': async (s) => {
+      await changeSettings(s)
+      if ('auto-reload-map' in s || 'auto-enable-extensions' in s) reloadMap()
+    },
     'choose-extension-folder': chooseExtensionFolder
   }
   Object.entries(ipcHandles).forEach(([channel, handler]) =>

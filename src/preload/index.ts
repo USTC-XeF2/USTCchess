@@ -4,6 +4,7 @@ import type { API } from './api'
 
 const api: API = {
   on: (type, callback) => ipcRenderer.on(type, (_e, data?) => callback(data)),
+  off: (type) => ipcRenderer.removeAllListeners(type),
   getTheme: () => ipcRenderer.invoke('get-theme'),
   controlWindow: (action) => ipcRenderer.send('control-window', action),
   updateConfig: () => ipcRenderer.send('update-config'),

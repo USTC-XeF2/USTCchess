@@ -13,6 +13,6 @@ export interface Extension extends ExtensionInfo {
   API: ExtensionAPI // defined in chessboard.ts
   init?: () => void
   modifyMove?: (chessboard: Chessboard, pos: Position, availableMoves: Position[]) => void
-  afterMove?: (chessboard: Chessboard, from: Position, to: Position) => void
+  afterMove?: (chessboard: Chessboard, from: Position, to: Position, turn: number) => void
   onDeath?: (chessboard: Chessboard, pos: Position, oldChess: Chess) => void
 }

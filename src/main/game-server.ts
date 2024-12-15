@@ -1,5 +1,4 @@
 import { randomInt } from 'crypto'
-import { networkInterfaces } from 'os'
 import { RawData, WebSocket, WebSocketServer } from 'ws'
 
 import { Position } from '../types/chessboard'
@@ -8,20 +7,6 @@ import { Extension } from '../types/extension'
 import { API } from '../utils/chessboard'
 import { generateChessboard } from '../utils/map'
 import { GameData } from '../utils/game'
-
-function getLocalIPAddress(): string | null {
-  const interfaces = networkInterfaces()
-  for (const iface of Object.values(interfaces)) {
-    if (iface) {
-      for (const addr of iface) {
-        if (addr.family === 'IPv4' && !addr.internal) {
-          return addr.address
-        }
-      }
-    }
-  }
-  return null
-}
 
 export class GameServer extends GameData {
   // WebSocket
@@ -32,16 +17,15 @@ export class GameServer extends GameData {
   // Game
   private currentTurn: number = 0
   private isGameEnd: boolean = false
-  constructor(mapData: GameMap, extensions: Extension[], openToLAN: boolean = false) {
+  constructor(mapData: GameMap, extensions: Extension[], host: string = 'localhost') {
     super()
-    const host = (openToLAN && getLocalIPAddress()) || 'localhost'
     let port = 0
     let wss: WebSocketServer | null = null
     let retry = 10
     while (retry--) {
       try {
         port = randomInt(10000, 65536)
-        wss = new WebSocketServer({ port, host: host })
+        wss = new WebSocketServer({ port, host })
         break
       } catch {
         // pass
@@ -122,7 +106,7 @@ export class GameServer extends GameData {
   }
 
   close(): void {
-    if (this.shuttingDown) return
+    if (this.shuttingDown || this.isGameEnd) return
     this.shuttingDown = true
     const code = this.isGameEnd ? 2000 : 4004
     this.wss.clients.forEach((ws) => ws.close(code))
@@ -147,7 +131,7 @@ export class GameServer extends GameData {
     if (!this.canMove(from, to)) return false
     const oldChess = API.moveChess(this.chessboard, from, to)
     if (oldChess) this.onChessDeath(to, oldChess)
-    this.afterMove(from, to)
+    this.afterMove(from, to, this.currentTurn)
     this.currentTurn = 3 - this.currentTurn
     for (let i = 0; i < this.chessboard.length; i++) {
       for (let j = 0; j < this.chessboard[i].length; j++) {
@@ -162,6 +146,5 @@ export class GameServer extends GameData {
     if (this.isGameEnd) return
     this.isGameEnd = true
     this.sendAll('game-end', { winner, info })
-    this.close()
   }
 }

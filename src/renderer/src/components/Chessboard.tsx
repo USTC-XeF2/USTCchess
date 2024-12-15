@@ -16,6 +16,7 @@ interface ChessboardComponentProps {
   intersection: boolean
   reverse?: boolean
   draggable?: boolean
+  checkedPos?: Position[]
   getAvailableMoves: (pos: Position) => Promise<Position[]>
   canMove?: (pos: Position) => Promise<boolean>
   move?: (from: Position, to: Position) => void
@@ -30,6 +31,7 @@ function ChessboardComponent({
   intersection,
   reverse = false,
   draggable = false,
+  checkedPos = [],
   getAvailableMoves,
   canMove,
   move
@@ -47,9 +49,10 @@ function ChessboardComponent({
       setMaxWidth(width)
       setMaxHeight(height)
     }
+    handleResize()
 
     window.addEventListener('resize', handleResize)
-    handleResize()
+    return (): void => window.removeEventListener('resize', handleResize)
   }, [])
 
   const isInAvailableMoves = (pos: Position): boolean => {
@@ -63,10 +66,10 @@ function ChessboardComponent({
     reverse ? width - pos[1] - 1 : pos[1]
   ]
 
-  const enterCell = async (pos: Position): Promise<void> => {
+  const enterCell = async (pos: Position, empty: boolean): Promise<void> => {
     setHoverPosition(pos)
     setCanMoveCache(await canMove?.(pos))
-    if (selectedPosition) return
+    if (empty || selectedPosition) return
     setAvailableMoves(await getAvailableMoves(pos))
   }
   const leaveCell = (): void => {
@@ -120,12 +123,13 @@ function ChessboardComponent({
     const chess = chessboard[pos[0]][pos[1]]
     const isSelected = selectedPosition && isEqualPosition(selectedPosition, pos)
     const isAvailable = isInAvailableMoves(pos)
-    const fillColor = isAvailable
-      ? chess
-        ? token.colorErrorBgFilledHover
-        : token.colorSuccessBgHover
-      : isSelected
-        ? token.colorWarningBgHover
+    const isChecked = checkedPos.some((p) => isEqualPosition(p, pos))
+    const fillColor = isSelected
+      ? token.colorWarningBgHover
+      : isAvailable || isChecked
+        ? chess
+          ? token.colorErrorBgFilledHover
+          : token.colorSuccessBgHover
         : intersection && !chess
           ? 'transparent'
           : hoverPosition && isEqualPosition(hoverPosition, pos)
@@ -136,7 +140,7 @@ function ChessboardComponent({
         key={`cell-${i}-${j}`}
         x={cellSize * j + padding}
         y={cellSize * i + padding}
-        onMouseEnter={() => enterCell(pos)}
+        onMouseEnter={() => enterCell(pos, !chess)}
         onMouseLeave={leaveCell}
         onClick={() => chooseCell(pos)}
         draggable={draggable && Boolean(chess)}
@@ -148,7 +152,7 @@ function ChessboardComponent({
           width={cellSize - padding * 2}
           height={cellSize - padding * 2}
           fill={fillColor}
-          stroke={borderColor}
+          stroke={isChecked ? token.colorErrorActive : borderColor}
           strokeWidth={intersection && !chess ? 0 : cellSize * 0.01}
           cornerRadius={intersection ? cellSize / 2 : 0}
         />

@@ -1,6 +1,6 @@
 appId: com.xef2.ustcchess
 productName: USTC Chess
-buildVersion: 0.2.0.1
+buildVersion: 0.2.1.0
 copyright: 'Copyright © 2024 ${author}, All rights reserved.'
 directories:
   buildResources: build

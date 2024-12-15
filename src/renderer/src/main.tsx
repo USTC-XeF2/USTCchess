@@ -48,6 +48,10 @@ function Main(): JSX.Element {
   useEffect(() => {
     window.addEventListener('update-mainwindow', window.electronAPI.updateConfig)
     window.electronAPI.on('window-maximize', (val) => setMaximized(val as boolean))
+    return (): void => {
+      window.removeEventListener('update-mainwindow', window.electronAPI.updateConfig)
+      window.electronAPI.off('window-maximize')
+    }
   }, [])
 
   const titleBar = {

@@ -103,18 +103,21 @@ function StartPage(): JSX.Element {
   const [mapLoadError, setMapLoadError] = useState<boolean>(false)
   const [gameData, setGameData] = useState<GameData>()
 
-  const reloadGameData = async (): Promise<void> =>
-    setGameData(await window.electronAPI.getGameData(true))
+  const refreshGameData = async (reload: boolean): Promise<void> =>
+    setGameData(await window.electronAPI.getGameData(reload))
 
   useEffect(() => {
-    const fetchData = async (): Promise<void> => {
+    ;(async (): Promise<void> => {
       setGameRunning(await window.electronAPI.getGameStatus())
-      setGameData(await window.electronAPI.getGameData())
-    }
-    fetchData()
+    })()
+    refreshGameData(false)
 
-    window.electronAPI.on('update-map', reloadGameData)
+    window.electronAPI.on('update-map', () => refreshGameData(true))
     window.electronAPI.on('stop-game', () => setGameRunning(false))
+    return (): void => {
+      window.electronAPI.off('update-map')
+      window.electronAPI.off('stop-game')
+    }
   }, [])
 
   const onStartGame: ButtonProps['onClick'] = async () => {
@@ -172,7 +175,7 @@ function StartPage(): JSX.Element {
       <Card
         title="地图预览"
         extra={
-          <Button icon={<ReloadOutlined />} onClick={reloadGameData}>
+          <Button icon={<ReloadOutlined />} onClick={() => refreshGameData(true)}>
             重新加载
           </Button>
         }
