@@ -1,6 +1,7 @@
 import { ExtNameList } from './extension'
 
 export interface LastLoaded {
+  'last-gamemode'?: string
   'last-loaded-map'?: string
   'enabled-extensions'?: ExtNameList
 }

@@ -9,32 +9,34 @@ import { generateChessboard } from '../utils/map'
 import { GameData } from '../utils/game'
 
 export class GameServer extends GameData {
-  // WebSocket
   address: string
   private wss: WebSocketServer
-  private shuttingDown: boolean = false
-  private playerList: Map<WebSocket, number> = new Map()
-  // Game
+  private playerList: ({ client: WebSocket; prepared: boolean } | null)[]
   private currentTurn: number = 0
   private isGameEnd: boolean = false
-  constructor(mapData: GameMap, extensions: Extension[], host: string = 'localhost') {
+  constructor(
+    mapData: GameMap,
+    extensions: Extension[],
+    host: string = 'localhost',
+    port: number = 0
+  ) {
     super()
-    let port = 0
     let wss: WebSocketServer | null = null
     let retry = 10
     while (retry--) {
       try {
-        port = randomInt(10000, 65536)
+        port = port || randomInt(10000, 65536)
         wss = new WebSocketServer({ port, host })
         break
       } catch {
-        // pass
+        port = 0
       }
     }
     if (!wss) throw new Error('Unable to get unused port')
     this.address = `${host}:${port}`
     this.wss = wss
     this.wss.on('connection', this.onConnection.bind(this))
+    this.playerList = new Array(2).fill(null)
     this.mapData = mapData
     this.loadExtensions(extensions)
     this.chessboard = generateChessboard(mapData)
@@ -51,18 +53,19 @@ export class GameServer extends GameData {
   }
 
   onConnection(ws: WebSocket): void {
-    if (this.wss.clients.size > 2) {
+    const idx = this.playerList.findIndex((val) => !val)
+    if (idx === -1) {
       this.send(ws, 'connect-fail', 'too-many-clients')
       ws.close()
       return
     }
-    this.playerList.set(ws, this.wss.clients.size)
+    this.playerList[idx] = { client: ws, prepared: false }
     ws.on('message', (data) => this.processMsg(ws, data))
-    ws.on('close', this.close.bind(this))
-    this.send(ws, 'connect-success', { camp: this.wss.clients.size, mapData: this.mapData })
-    if (this.wss.clients.size === 2) {
-      this.startGame()
-    }
+    ws.on('close', () => {
+      if (this.playerList[idx]?.prepared) this.close()
+      this.playerList[idx] = null
+    })
+    this.send(ws, 'connect-success', { camp: idx + 1, mapData: this.mapData })
   }
 
   processMsg(ws: WebSocket, rawData: RawData): void {
@@ -75,6 +78,17 @@ export class GameServer extends GameData {
       return
     }
     switch (data.type) {
+      case 'prepared':
+        if (
+          this.playerList.every((val) => {
+            if (val?.client === ws) val.prepared = true
+            return val?.prepared
+          })
+        ) {
+          this.currentTurn = 1
+          this.sendAll('game-start')
+        }
+        break
       case 'get-state':
         this.send(
           ws,
@@ -84,7 +98,7 @@ export class GameServer extends GameData {
         )
         break
       case 'move': {
-        if (this.playerList.get(ws) !== this.currentTurn) {
+        if (this.playerList.findIndex((val) => val?.client === ws) + 1 !== this.currentTurn) {
           this.send(ws, 'error', 'Not your turn', data.id)
           break
         }
@@ -106,16 +120,10 @@ export class GameServer extends GameData {
   }
 
   close(): void {
-    if (this.shuttingDown || this.isGameEnd) return
-    this.shuttingDown = true
-    const code = this.isGameEnd ? 2000 : 4004
-    this.wss.clients.forEach((ws) => ws.close(code))
+    if (this.isGameEnd) return
+    this.isGameEnd = true
+    this.wss.clients.forEach((ws) => ws.close(4004))
     this.wss.close()
-  }
-
-  startGame(): void {
-    this.currentTurn = 1
-    this.sendAll('game-start')
   }
 
   canMove(pos: Position, to?: Position): boolean {

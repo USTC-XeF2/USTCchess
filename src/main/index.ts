@@ -1,4 +1,6 @@
-import { app, BrowserWindow, dialog, ipcMain, nativeTheme } from 'electron'
+import os from 'os'
+import dns from 'dns'
+import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeTheme } from 'electron'
 import { FSWatcher, unwatchFile, watch, watchFile } from 'node:fs'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 
@@ -51,6 +53,15 @@ class PreloadGameData extends GameData {
   }
 }
 
+async function getLocalIPAddress(): Promise<string> {
+  return new Promise((resolve, reject) => {
+    dns.lookup(os.hostname(), 4, (e, address) => {
+      if (e) reject(e)
+      else resolve(address)
+    })
+  })
+}
+
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.xef2.ustcchess')
 
@@ -89,7 +100,7 @@ app.whenReady().then(() => {
   mainWindow.on('close', (e) => {
     if (!isGameRunning) return
     e.preventDefault()
-    checkOnClose().then((res) => {
+    checkOnClose(mainWindow).then((res) => {
       if (res) {
         BrowserWindow.getAllWindows().forEach((w) => w.destroy())
       }
@@ -191,7 +202,11 @@ app.whenReady().then(() => {
     watcher = watch(await getSetting('extensions-save-path'), reloadExt)
   })()
 
-  const startGame = async (gamemode: string): Promise<boolean> => {
+  const startGame = async (
+    gamemode: string,
+    mode: string,
+    data: { port: string; address: string }
+  ): Promise<boolean> => {
     if (isGameRunning) throw '游戏正在运行中'
     const getMapData = async (): Promise<Map> => {
       const mapData = gameData.getInterface().mapData
@@ -204,6 +219,30 @@ app.whenReady().then(() => {
       const mapData = await getMapData()
       const server = new GameServer(mapData, gameData.getExtensions())
       createClients(server.address, 2, restoreMainWindow)
+    } else if (gamemode === 'quick-online') {
+      if (mode === 'create') {
+        const mapData = await getMapData()
+        const host = await getLocalIPAddress()
+        const port = parseInt(data.port) || 0
+        const server = new GameServer(mapData, gameData.getExtensions(), host, port)
+        const isCopy = await dialog.showMessageBox(mainWindow, {
+          type: 'info',
+          buttons: ['复制地址', '确定'],
+          defaultId: 1,
+          title: '快速联机',
+          message: `联机地址：${server.address}`,
+          noLink: true
+        })
+        if (isCopy.response === 0) {
+          clipboard.writeText(server.address)
+        }
+        createClients(server.address, 1, restoreMainWindow, false)
+      } else {
+        if (!data.address) throw '未输入联机地址'
+        const regex = /^(([a-zA-Z0-9-]+\.)+[a-zA-Z]{2,}|(\d{1,3}\.){3}\d{1,3}):\d{1,5}$/
+        if (!regex.test(data.address)) throw '地址格式错误'
+        createClients(data.address, 1, restoreMainWindow, false)
+      }
     } else {
       throw `The gamemode '${gamemode}' has not been implemented yet.`
     }
@@ -216,6 +255,11 @@ app.whenReady().then(() => {
     'get-theme': getTheme,
     'get-game-status': (): boolean => isGameRunning,
     'start-game': startGame,
+    'get-gamemode': async (m: string): Promise<string> => {
+      if (m) changeLastLoaded('last-gamemode', m)
+      const mode = m ?? (await getLastLoaded())['last-gamemode']
+      return ['local-mode', 'quick-online'].includes(mode) ? mode : 'local-mode'
+    },
     'choose-map': chooseMap,
     'get-game-data': getGameData,
     'get-extensions-info': getExtensionsInfo,

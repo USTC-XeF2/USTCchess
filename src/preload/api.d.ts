@@ -14,7 +14,8 @@ interface API {
   controlWindow: (action: string) => void
   updateConfig: () => void
   getGameStatus: () => Promise<boolean>
-  startGame: (gamemode: string) => Promise<string>
+  startGame: (gamemode: string, mode: string, data: object) => Promise<string>
+  getGamemode: (mode?: string) => Promise<string>
   chooseMap: () => Promise<boolean>
   getGameData: (reload?: boolean) => Promise<GameData>
   generateChessboard: (mapData: Map) => Chessboard

@@ -1,9 +1,17 @@
-import { BrowserWindow, dialog, ipcMain, Menu, MenuItemConstructorOptions, shell } from 'electron'
+import {
+  BrowserWindow,
+  clipboard,
+  dialog,
+  ipcMain,
+  Menu,
+  MenuItemConstructorOptions,
+  shell
+} from 'electron'
 import { join } from 'node:path'
 import { RawData, WebSocket } from 'ws'
 import { is } from '@electron-toolkit/utils'
 
-import { autoGetNeededExtensions, checkExtensions, getSetting } from './main'
+import { autoGetNeededExtensions, checkExtensions } from './main'
 
 import { Chessboard, Position } from '../types/chessboard'
 import { Map as GameMap } from '../types/map'
@@ -50,7 +58,8 @@ class GameClient extends GameData {
   close: (content?: string) => void
   // WebSocket
   private ws: WebSocket
-  private timeout: number = 20000
+  private timeout: number = 10000
+  private isLocal: boolean
   private isConnectSuccess: boolean = false
   private messageHandlers: Map<string, (response: Response) => void> = new Map()
   // Game
@@ -70,14 +79,15 @@ class GameClient extends GameData {
       if (content) dialog.showErrorBox('错误', content)
       close()
     }
+    this.isLocal = isLocal
 
-    const menuTemplate = [
+    const menuTemplate: MenuItemConstructorOptions[] = [
       {
         label: '查看地图信息',
         click: (): void => {
           if (this.mapData) {
             const [msg, detail] = getInfo(this.mapData)
-            dialog.showMessageBox({
+            dialog.showMessageBox(this.window, {
               type: 'info',
               title: '地图信息',
               message: msg,
@@ -91,14 +101,25 @@ class GameClient extends GameData {
     ]
     if (!isLocal) {
       menuTemplate.push({
-        label: '查看服务器信息',
-        click: (): void => {
-          dialog.showMessageBox({
-            type: 'info',
-            title: '服务器信息',
-            message: `地址：${address}`
-          })
-        }
+        label: '服务器',
+        submenu: [
+          {
+            label: '查看服务器信息',
+            click: (): void => {
+              dialog.showMessageBox(this.window, {
+                type: 'info',
+                title: '服务器信息',
+                message: `地址：${address}`
+              })
+            }
+          },
+          {
+            label: '复制地址',
+            click: (): void => {
+              clipboard.writeText(address)
+            }
+          }
+        ]
       })
     }
     this.window = createGameWindow(menuTemplate)
@@ -128,21 +149,33 @@ class GameClient extends GameData {
     } else {
       switch (data.type) {
         case 'connect-success': {
+          this.isConnectSuccess = true
           const { camp, mapData } = data.data as { camp: number; mapData: GameMap }
-          this.camp = camp
           this.mapData = mapData
           this.loadExtensions(await autoGetNeededExtensions(mapData.extensions))
-          if (await getSetting('check-extensions'))
-            if (!checkExtensions(this.extensions, this.mapData!.extensions))
-              this.close('地图所需扩展未启用或版本错误')
-          this.window.setTitle(`${mapData.name} - ${this.window.getTitle().split(' - ')[1]}`)
+          if (!(this.isLocal || checkExtensions(this.extensions, this.mapData!.extensions))) {
+            const requiredExtensions = Object.entries(this.mapData.extensions)
+              .map(([key, version]) => `${key}@${version}`)
+              .join('\n  ')
+            const existingExtensions =
+              this.extensions.map((ext) => `${ext.key}@${ext.version}`).join('\n  ') || '无'
+            await dialog.showMessageBox(this.window, {
+              type: 'error',
+              title: '错误',
+              message: '已启用扩展与服务器不匹配',
+              detail: `所需扩展：\n  ${requiredExtensions}\n已有扩展：\n  ${existingExtensions}`
+            })
+            return this.close()
+          }
+          this.camp = camp
+          this.ws.send(JSON.stringify({ type: 'prepared' }))
+          this.window.setTitle(`${mapData.name} - ${this.isLocal ? '本地模式' : '联机模式'}`)
           this.window.webContents.send('connect-success')
-          this.isConnectSuccess = true
           break
         }
         case 'connect-fail':
           if (data.data === 'too-many-clients') {
-            this.close('游戏房间已满')
+            setTimeout(() => this.close('游戏房间已满'), 500)
           } else {
             this.close(data.data as string)
           }
@@ -230,8 +263,8 @@ class GameClient extends GameData {
   }
 }
 
-export const checkOnClose = async (): Promise<boolean> => {
-  const res = await dialog.showMessageBox({
+export const checkOnClose = async (window: BrowserWindow): Promise<boolean> => {
+  const res = await dialog.showMessageBox(window, {
     type: 'warning',
     buttons: ['确定', '取消'],
     cancelId: 1,
@@ -275,7 +308,7 @@ export function createClients(
   for (const c of gameClients) {
     c.window.on('close', async (e) => {
       e.preventDefault()
-      if (c.isGameEnd || (await checkOnClose())) {
+      if (c.isGameEnd || (await checkOnClose(c.window))) {
         c.close()
       }
     })

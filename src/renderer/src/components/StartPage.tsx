@@ -10,9 +10,12 @@ import {
   Descriptions,
   Divider,
   Flex,
+  Input,
+  InputNumber,
   message,
   Select,
   Space,
+  Tabs,
   Tooltip,
   Typography
 } from 'antd'
@@ -21,9 +24,9 @@ import { GameData } from 'src/types/game'
 
 import ChessboardComponent from './Chessboard'
 
-const gamemodes: SelectProps['options'] = [
+const gamemodeOptions: SelectProps['options'] = [
   { value: 'local-mode', label: '本地模式' },
-  { value: 'quick-online', label: '快速联机', disabled: true },
+  { value: 'quick-online', label: '快速联机' },
   { value: 'room-online', label: '房间模式', disabled: true }
 ]
 
@@ -99,7 +102,10 @@ function MapPreload({ gameData }: { gameData?: GameData }): JSX.Element {
 
 function StartPage(): JSX.Element {
   const [isGameRunning, setGameRunning] = useState<boolean>(false)
-  const [currentGamemode, setCurrentGamemode] = useState<string>('local-mode')
+  const [gamemode, setGamemode] = useState<string>('local-mode')
+  const [onlineMode, setOnlineMode] = useState<string>('create')
+  const [port, setPort] = useState<string | null>(null)
+  const [address, setAddress] = useState<string>('')
   const [mapLoadError, setMapLoadError] = useState<boolean>(false)
   const [gameData, setGameData] = useState<GameData>()
 
@@ -109,6 +115,7 @@ function StartPage(): JSX.Element {
   useEffect(() => {
     ;(async (): Promise<void> => {
       setGameRunning(await window.electronAPI.getGameStatus())
+      setGamemode(await window.electronAPI.getGamemode())
     })()
     refreshGameData(false)
 
@@ -120,7 +127,7 @@ function StartPage(): JSX.Element {
     }
   }, [])
 
-  const onStartGame: ButtonProps['onClick'] = async () => {
+  const startGame: ButtonProps['onClick'] = async () => {
     if (mapLoadError) {
       message.warning('地图文件格式错误')
       return
@@ -129,7 +136,7 @@ function StartPage(): JSX.Element {
       return
     }
     window.electronAPI
-      .startGame(currentGamemode)
+      .startGame(gamemode, onlineMode, { port, address })
       .then((v) => {
         if (v) setGameRunning(true)
       })
@@ -146,17 +153,38 @@ function StartPage(): JSX.Element {
     <Flex gap="middle" style={{ height: '100%' }}>
       <Card style={{ width: 300 }}>
         <Space direction="vertical" style={{ display: 'flex' }}>
-          <Button type="primary" disabled={isGameRunning} onClick={onStartGame} block>
-            开始游戏
+          <Button type="primary" disabled={isGameRunning} onClick={startGame} block>
+            {isGameRunning ? '游戏运行中' : '开始游戏'}
           </Button>
           <Select
-            defaultValue="local-mode"
+            value={gamemode}
+            onChange={async (m) => setGamemode(await window.electronAPI.getGamemode(m))}
+            options={gamemodeOptions}
             style={{ width: '100%' }}
-            onChange={(v) => {
-              setCurrentGamemode(v)
-            }}
-            options={gamemodes}
           />
+          {gamemode === 'quick-online' && (
+            <Tabs size="small" centered activeKey={onlineMode} onChange={(v) => setOnlineMode(v)}>
+              <Tabs.TabPane tab="创建联机" key="create">
+                <InputNumber
+                  addonBefore="端口号"
+                  placeholder="随机"
+                  min="1"
+                  max="65535"
+                  precision={0}
+                  value={port}
+                  onChange={(v) => setPort(v)}
+                />
+              </Tabs.TabPane>
+              <Tabs.TabPane tab="加入联机" key="join">
+                <Input
+                  placeholder="联机地址"
+                  allowClear
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                />
+              </Tabs.TabPane>
+            </Tabs>
+          )}
           <Divider />
           <Button icon={<SelectOutlined />} onClick={chooseMap} block>
             选择地图
