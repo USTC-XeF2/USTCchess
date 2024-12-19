@@ -1,5 +1,17 @@
 # Change Log
 
+## [1.0.0-beta.1] - 2024-12-19
+
+### Added
+
+- Quick online mode.
+- Menu options for surrender and draw.
+- The function of marking the previous step position.
+
+### Fixed
+
+- Prompt windows can be triggered repeatedly.
+
 ## [0.2.1] - 2024-12-15
 
 ### Added

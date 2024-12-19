@@ -3,9 +3,9 @@
 ![code size](https://img.shields.io/github/languages/code-size/USTC-XeF2/USTCchess)
 ![last commit](https://img.shields.io/github/last-commit/USTC-XeF2/USTCchess)
 
-![Ant Design](https://img.shields.io/badge/Ant_Design-5.21.2-brightgreen)
+![Ant Design](https://img.shields.io/badge/Ant_Design-5.22.5-brightgreen)
 ![React](https://img.shields.io/badge/React-18.3.1-yellow)
-![Electron](https://img.shields.io/badge/Electron-31.6.0-blue)
+![Electron](https://img.shields.io/badge/Electron-31.7.6-blue)
 ![Node.js](https://img.shields.io/badge/Node.js-20.17.0-green)
 
 [English](README.md) | [简体中文](README.zh_CN.md)

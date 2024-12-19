@@ -127,12 +127,13 @@ function StartPage(): JSX.Element {
     }
   }, [])
 
+  const [messageApi, contextHolder] = message.useMessage()
   const startGame: ButtonProps['onClick'] = async () => {
     if (mapLoadError) {
-      message.warning('地图文件格式错误')
+      messageApi.warning('地图文件格式错误')
       return
     } else if (!gameData) {
-      message.info('未选择地图文件')
+      messageApi.info('未选择地图文件')
       return
     }
     window.electronAPI
@@ -140,7 +141,7 @@ function StartPage(): JSX.Element {
       .then((v) => {
         if (v) setGameRunning(true)
       })
-      .catch((e) => message.error(e.message.substring(e.message.lastIndexOf(':') + 1).trim()))
+      .catch((e) => messageApi.error(e.message.substring(e.message.lastIndexOf(':') + 1).trim()))
   }
 
   const chooseMap: ButtonProps['onClick'] = async () => {
@@ -211,6 +212,7 @@ function StartPage(): JSX.Element {
       >
         <MapPreload gameData={gameData} />
       </Card>
+      {contextHolder}
     </Flex>
   )
 }

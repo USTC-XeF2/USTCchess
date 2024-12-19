@@ -4,10 +4,22 @@ import React, { useEffect, useState } from 'react'
 import ReactDOM from 'react-dom/client'
 
 import { FrownOutlined, MehOutlined, SmileOutlined } from '@ant-design/icons'
-import { Card, Flex, Spin, Typography } from 'antd'
+import {
+  Button,
+  Card,
+  Flex,
+  message,
+  Modal,
+  notification,
+  Result,
+  Space,
+  Spin,
+  Typography
+} from 'antd'
 
 import { Chessboard, Position } from 'src/types/chessboard'
 import { Map } from 'src/types/map'
+import { GamePrompt } from 'src/types/game'
 
 import AppConfig from './config'
 import ChessboardComponent from './components/Chessboard'
@@ -32,8 +44,11 @@ const getColor = (camp?: number): string => (camp == 1 ? 'red' : camp == 2 ? 'bl
 function Game(): JSX.Element {
   const [info, setInfo] = useState<Info>()
   const [gameState, setGameState] = useState<GameState>()
-  const [isCheckedPos, setIsCheckedPos] = useState<Position[]>([])
+  const [gamePrompt, setGamePrompt] = useState<GamePrompt>()
   const [gameResult, setGameResult] = useState<GameResult>()
+  const [noticeApi, noticeHolder] = notification.useNotification()
+  const [messageApi, messageHolder] = message.useMessage()
+  const [showGameResult, setShowGameResult] = useState(false)
 
   const getInfo = (): Promise<void> =>
     window.electronAPI.contact('get-info').then((res) => {
@@ -44,6 +59,11 @@ function Game(): JSX.Element {
       if (res.status === 'success') setGameState(res.data as GameState)
     })
 
+  const draw = (result: boolean): void => {
+    noticeApi.destroy('draw')
+    window.electronAPI.contact('draw', result)
+  }
+
   useEffect(() => {
     getInfo()
     getGameState()
@@ -53,14 +73,38 @@ function Game(): JSX.Element {
       getGameState()
     })
     window.electronAPI.on('game-start', getGameState)
-    window.electronAPI.on('change-turn', async () => {
+    window.electronAPI.on('change-turn', async (data) => {
       await getGameState()
-      window.electronAPI.contact('get-is-checked').then((res) => {
-        if (res.status === 'success') setIsCheckedPos(res.data as Position[])
+      setGamePrompt(data as GamePrompt)
+    })
+    window.electronAPI.on('draw', () => {
+      noticeApi.open({
+        key: 'draw',
+        message: '和棋请求',
+        description: '对方发起了和棋请求',
+        btn: (
+          <Space>
+            <Button size="small" onClick={() => draw(false)}>
+              拒绝
+            </Button>
+            <Button type="primary" size="small" onClick={() => draw(true)}>
+              同意
+            </Button>
+          </Space>
+        ),
+        duration: 0,
+        placement: 'top',
+        onClose: () => draw(false)
       })
+    })
+    window.electronAPI.on('draw-refused', () => {
+      noticeApi.destroy('draw')
+      messageApi.destroy()
+      messageApi.info('对方拒绝了和棋请求')
     })
     window.electronAPI.on('game-end', (data) => {
       setGameResult(data as GameResult)
+      setShowGameResult(true)
     })
     return (): void => {
       window.electronAPI.off('connect-success')
@@ -77,6 +121,7 @@ function Game(): JSX.Element {
     (await window.electronAPI.contact('get-available-moves', pos)).data as Position[]
   const canMove = async (pos: Position): Promise<boolean> => {
     if (gameState?.currentTurn !== camp) return false
+    if (gameResult) return false
     const chess = gameState.chessboard[pos[0]][pos[1]]
     if (chess?.camp && chess.camp !== camp) return false
     return Boolean((await getAvailableMoves(pos)).length)
@@ -84,13 +129,21 @@ function Game(): JSX.Element {
   const campStyle = { color: getColor(camp) }
   return (
     <>
-      <Card style={{ margin: 10 }}>
+      <Card style={{ height: 72, margin: 12 }}>
         <Flex justify="space-evenly">
           <Typography.Text>
             本方阵营：<span style={campStyle}>▇</span>
           </Typography.Text>
           <Typography.Text>
-            {gameState?.currentTurn ? (
+            {gameResult ? (
+              showGameResult ? (
+                '游戏已结束'
+              ) : (
+                <Button type="link" size="small" onClick={() => setShowGameResult(true)}>
+                  查看游戏结果
+                </Button>
+              )
+            ) : gameState?.currentTurn ? (
               <>
                 当前回合：
                 <span style={{ color: getColor(gameState?.currentTurn) }}>
@@ -106,42 +159,45 @@ function Game(): JSX.Element {
       <ChessboardComponent
         chessboard={gameState?.chessboard || window.electronAPI.generateChessboard(mapData)}
         getSize={() => ({
-          width: 0.9 * window.innerWidth,
-          height: 0.9 * window.innerHeight - 50
+          width: window.innerWidth - 24,
+          height: window.innerHeight - 112
         })}
         intersection={mapData.chessboard.intersection}
         reverse={camp === 2}
         draggable
-        checkedPos={isCheckedPos}
+        gamePrompt={gamePrompt}
         getAvailableMoves={getAvailableMoves}
         canMove={canMove}
         move={(from, to) => window.electronAPI.contact('move', { from, to })}
       />
-      {gameResult ? (
-        <Spin
-          indicator={
-            gameResult.winner ? (
-              gameResult.winner === camp ? (
-                <SmileOutlined style={campStyle} />
+      {noticeHolder}
+      {messageHolder}
+
+      <Modal
+        centered
+        width={240}
+        footer={null}
+        open={gameResult && showGameResult}
+        onCancel={() => setShowGameResult(false)}
+      >
+        {gameResult && (
+          <Result
+            icon={
+              gameResult.winner ? (
+                gameResult.winner === camp ? (
+                  <SmileOutlined style={campStyle} />
+                ) : (
+                  <FrownOutlined style={campStyle} />
+                )
               ) : (
-                <FrownOutlined style={campStyle} />
+                <MehOutlined style={campStyle} />
               )
-            ) : (
-              <MehOutlined style={campStyle} />
-            )
-          }
-          tip={
-            <>
-              <div style={{ fontSize: 24, color: getColor(gameResult.winner) }}>
-                {gameResult.winner ? `${gameResult.winner === 1 ? '红' : '蓝'}方胜利` : '平局'}
-              </div>
-              <div style={{ fontSize: 16 }}>{gameResult.info}</div>
-            </>
-          }
-          size="large"
-          fullscreen
-        />
-      ) : null}
+            }
+            title={gameResult.winner ? `${gameResult.winner === 1 ? '红' : '蓝'}方胜利` : '平局'}
+            extra={gameResult.info}
+          />
+        )}
+      </Modal>
     </>
   )
 }

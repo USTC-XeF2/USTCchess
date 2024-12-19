@@ -1,6 +1,6 @@
 import os from 'os'
 import dns from 'dns'
-import { app, BrowserWindow, clipboard, dialog, ipcMain, nativeTheme } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, nativeTheme } from 'electron'
 import { FSWatcher, unwatchFile, watch, watchFile } from 'node:fs'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 
@@ -31,7 +31,7 @@ import {
 } from './main'
 
 import { GameServer } from './game-server'
-import { checkOnClose, createClients } from './game'
+import { copyString, checkOnClose, createClients } from './game'
 
 class PreloadGameData extends GameData {
   isAllExtLoaded: boolean = false
@@ -225,17 +225,7 @@ app.whenReady().then(() => {
         const host = await getLocalIPAddress()
         const port = parseInt(data.port) || 0
         const server = new GameServer(mapData, gameData.getExtensions(), host, port)
-        const isCopy = await dialog.showMessageBox(mainWindow, {
-          type: 'info',
-          buttons: ['复制地址', '确定'],
-          defaultId: 1,
-          title: '快速联机',
-          message: `联机地址：${server.address}`,
-          noLink: true
-        })
-        if (isCopy.response === 0) {
-          clipboard.writeText(server.address)
-        }
+        await copyString(mainWindow, '快速联机', `联机地址：${server.address}`, server.address)
         createClients(server.address, 1, restoreMainWindow, false)
       } else {
         if (!data.address) throw '未输入联机地址'

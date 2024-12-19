@@ -12,3 +12,11 @@ export interface Response {
   status: string
   data?: unknown
 }
+
+export interface GamePrompt {
+  lastMove: {
+    from: Position
+    to: Position
+  }
+  checkedPos: Position[]
+}

@@ -2,10 +2,11 @@ import '../assets/chessboard.css'
 
 import { useEffect, useState } from 'react'
 import { theme } from 'antd'
-import { Group, Layer, Stage, Rect, Text, Line } from 'react-konva'
+import { Arrow, Group, Layer, Line, Rect, Stage, Text } from 'react-konva'
 import { KonvaEventObject } from 'konva/lib/Node'
 
 import { Chessboard, Position } from 'src/types/chessboard'
+import { GamePrompt } from 'src/types/game'
 
 interface ChessboardComponentProps {
   chessboard: Chessboard
@@ -16,7 +17,7 @@ interface ChessboardComponentProps {
   intersection: boolean
   reverse?: boolean
   draggable?: boolean
-  checkedPos?: Position[]
+  gamePrompt?: GamePrompt
   getAvailableMoves: (pos: Position) => Promise<Position[]>
   canMove?: (pos: Position) => Promise<boolean>
   move?: (from: Position, to: Position) => void
@@ -31,7 +32,7 @@ function ChessboardComponent({
   intersection,
   reverse = false,
   draggable = false,
-  checkedPos = [],
+  gamePrompt,
   getAvailableMoves,
   canMove,
   move
@@ -123,7 +124,7 @@ function ChessboardComponent({
     const chess = chessboard[pos[0]][pos[1]]
     const isSelected = selectedPosition && isEqualPosition(selectedPosition, pos)
     const isAvailable = isInAvailableMoves(pos)
-    const isChecked = checkedPos.some((p) => isEqualPosition(p, pos))
+    const isChecked = gamePrompt?.checkedPos.some((p) => isEqualPosition(p, pos))
     const fillColor = isSelected
       ? token.colorWarningBgHover
       : isAvailable || isChecked
@@ -175,6 +176,11 @@ function ChessboardComponent({
     )
   }
 
+  const lastMove = gamePrompt && {
+    from: getReversePosition(gamePrompt.lastMove.from),
+    to: getReversePosition(gamePrompt.lastMove.to)
+  }
+
   return (
     <Stage id="board" width={cellSize * width} height={cellSize * height}>
       <Layer>
@@ -214,6 +220,25 @@ function ChessboardComponent({
           Array.from({ length: width }, (_, j) => getCell(i, j))
         ).flat()}
       </Layer>
+      {lastMove && (
+        <Layer>
+          <Arrow
+            points={[
+              cellSize * (lastMove.from[1] + 0.5),
+              cellSize * (lastMove.from[0] + 0.5),
+              cellSize * (lastMove.to[1] + 0.5),
+              cellSize * (lastMove.to[0] + 0.5)
+            ]}
+            pointerLength={18}
+            pointerWidth={12}
+            fill={token.colorWarningHover}
+            stroke={token.colorWarningHover}
+            strokeWidth={4}
+            opacity={0.6}
+            listening={false}
+          />
+        </Layer>
+      )}
       {!intersection && (
         <Layer>
           <Rect

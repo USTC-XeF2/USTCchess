@@ -19,7 +19,7 @@ import { Response } from '../types/game'
 import { getInfo } from '../utils/map'
 import { GameData } from '../utils/game'
 
-function createGameWindow(menuTemplate: MenuItemConstructorOptions[]): BrowserWindow {
+function createGameWindow(): BrowserWindow {
   const gameWindow = new BrowserWindow({
     width: 480,
     height: 720,
@@ -31,9 +31,6 @@ function createGameWindow(menuTemplate: MenuItemConstructorOptions[]): BrowserWi
       preload: join(__dirname, '../preload/index.js')
     }
   })
-
-  const menu = Menu.buildFromTemplate(menuTemplate)
-  gameWindow.setMenu(menu)
 
   gameWindow.on('ready-to-show', () => {
     gameWindow.show()
@@ -55,6 +52,7 @@ function createGameWindow(menuTemplate: MenuItemConstructorOptions[]): BrowserWi
 class GameClient extends GameData {
   id: number
   window: BrowserWindow
+  private menu: MenuItemConstructorOptions[]
   close: (content?: string) => void
   // WebSocket
   private ws: WebSocket
@@ -81,7 +79,7 @@ class GameClient extends GameData {
     }
     this.isLocal = isLocal
 
-    const menuTemplate: MenuItemConstructorOptions[] = [
+    const gameMenu: MenuItemConstructorOptions[] = [
       {
         label: '查看地图信息',
         click: (): void => {
@@ -99,30 +97,49 @@ class GameClient extends GameData {
         }
       }
     ]
-    if (!isLocal) {
-      menuTemplate.push({
-        label: '服务器',
-        submenu: [
-          {
-            label: '查看服务器信息',
-            click: (): void => {
-              dialog.showMessageBox(this.window, {
-                type: 'info',
-                title: '服务器信息',
-                message: `地址：${address}`
-              })
-            }
-          },
-          {
-            label: '复制地址',
-            click: (): void => {
-              clipboard.writeText(address)
-            }
-          }
-        ]
+    if (!this.isLocal) {
+      gameMenu.push({
+        type: 'separator'
+      })
+      gameMenu.push({
+        label: '查看服务器信息',
+        click: async () => await copyString(this.window, '服务器信息', `地址：${address}`, address)
       })
     }
-    this.window = createGameWindow(menuTemplate)
+    const matchMenu = [
+      {
+        label: '认输',
+        click: async (): Promise<void> => {
+          const result = await dialog.showMessageBox(this.window, {
+            type: 'question',
+            title: '认输确认',
+            message: `您确定要认输吗？`,
+            buttons: ['确定', '取消'],
+            noLink: true
+          })
+          if (result.response === 0) {
+            this.send({ type: 'surrender' })
+          }
+        }
+      },
+      {
+        label: '和棋',
+        click: (): void => this.send({ type: 'draw', data: true })
+      }
+    ]
+    this.menu = [
+      {
+        label: '游戏',
+        submenu: gameMenu
+      },
+      {
+        label: '对局',
+        submenu: matchMenu
+      }
+    ]
+
+    this.window = createGameWindow()
+    this.setMenu(false)
     this.window.setTitle(`USTC棋 - ${isLocal ? '本地模式' : '联机模式'}`)
     this.id = this.window.webContents.id
     setTimeout(() => {
@@ -130,6 +147,14 @@ class GameClient extends GameData {
         this.ws.close(4000)
       }
     }, this.timeout)
+  }
+
+  private setMenu(matchMenuVisible: boolean): void {
+    if (matchMenuVisible) {
+      this.window.setMenu(Menu.buildFromTemplate(this.menu))
+    } else {
+      this.window.setMenu(Menu.buildFromTemplate(this.menu.filter((item) => item.label !== '对局')))
+    }
   }
 
   private async onMessage(rawData: RawData): Promise<void> {
@@ -168,7 +193,7 @@ class GameClient extends GameData {
             return this.close()
           }
           this.camp = camp
-          this.ws.send(JSON.stringify({ type: 'prepared' }))
+          this.send({ type: 'prepared' })
           this.window.setTitle(`${mapData.name} - ${this.isLocal ? '本地模式' : '联机模式'}`)
           this.window.webContents.send('connect-success')
           break
@@ -181,11 +206,33 @@ class GameClient extends GameData {
           }
           break
         case 'game-start':
+          if (data.data && !this.isLocal) {
+            dialog.showMessageBox(this.window, {
+              type: 'info',
+              title: '游戏开始',
+              message: '所有玩家已准备就绪',
+              noLink: true
+            })
+          }
+          this.setMenu(true)
+          this.window.webContents.send('game-start')
+          break
         case 'change-turn':
-          this.window.webContents.send(data.type)
+          this.window.webContents.send('change-turn', {
+            lastMove: data.data,
+            checkedPos: this.getCheckedPos()
+          })
+          break
+        case 'draw':
+          if (this.isLocal) this.send({ type: 'draw', data: true })
+          else this.window.webContents.send('draw')
+          break
+        case 'draw-refused':
+          this.window.webContents.send('draw-refused')
           break
         case 'game-end':
           this.isGameEnd = true
+          this.setMenu(false)
           this.window.webContents.send('game-end', data.data)
           break
         default:
@@ -213,26 +260,31 @@ class GameClient extends GameData {
       }
       case 'get-available-moves':
         return { status: 'success', data: this.getAvailableMoves(data as Position) }
-      case 'get-is-checked':
-        return { status: 'success', data: this.getIsChecked() }
       case 'move': {
         return await this.contactToServer(type, data)
       }
+      case 'draw':
+        this.send({ type: 'draw', data })
+        return { status: 'success' }
       default:
         return { status: 'error', data: 'Unknown type.' }
     }
   }
 
-  contactToServer(type: string, data?: unknown): Promise<Response> {
+  private send(message: object): void {
+    this.ws.send(JSON.stringify(message))
+  }
+
+  private contactToServer(type: string, data?: unknown): Promise<Response> {
     return new Promise((resolve) => {
       const messageId = Math.random().toString(36).substring(2)
       try {
-        const message = JSON.stringify({ type, data, id: messageId })
+        const message = { type, data, id: messageId }
         this.messageHandlers.set(messageId, (response: Response): void => {
           this.messageHandlers.delete(messageId)
           resolve(response)
         })
-        this.ws.send(message)
+        this.send(message)
       } catch {
         resolve({ status: 'error', data: 'Failed to send message.' })
       }
@@ -246,7 +298,7 @@ class GameClient extends GameData {
     })
   }
 
-  getIsChecked(): Position[] {
+  private getCheckedPos(): Position[] {
     const myChiefPos: Position[] = []
     const opponentMoves = new Set<string>()
     for (let i = 0; i < this.chessboard.length; i++) {
@@ -260,6 +312,25 @@ class GameClient extends GameData {
       }
     }
     return myChiefPos.filter((p) => opponentMoves.has(JSON.stringify(p)))
+  }
+}
+
+export const copyString = async (
+  window: BrowserWindow,
+  title: string,
+  message: string,
+  content: string
+): Promise<void> => {
+  const isCopy = await dialog.showMessageBox(window, {
+    type: 'info',
+    buttons: ['复制', '确定'],
+    defaultId: 1,
+    title: title,
+    message: message,
+    noLink: true
+  })
+  if (isCopy.response === 0) {
+    clipboard.writeText(content)
   }
 }
 

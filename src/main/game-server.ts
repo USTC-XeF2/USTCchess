@@ -8,12 +8,20 @@ import { API } from '../utils/chessboard'
 import { generateChessboard } from '../utils/map'
 import { GameData } from '../utils/game'
 
+interface Player {
+  camp: number
+  client: WebSocket | null
+  prepared: boolean
+  agreeDraw: boolean
+}
+
 export class GameServer extends GameData {
   address: string
   private wss: WebSocketServer
-  private playerList: ({ client: WebSocket; prepared: boolean } | null)[]
+  private playerList: Player[]
   private currentTurn: number = 0
   private isGameEnd: boolean = false
+  private raiseDraw: boolean = false
   constructor(
     mapData: GameMap,
     extensions: Extension[],
@@ -36,7 +44,12 @@ export class GameServer extends GameData {
     this.address = `${host}:${port}`
     this.wss = wss
     this.wss.on('connection', this.onConnection.bind(this))
-    this.playerList = new Array(2).fill(null)
+    this.playerList = Array.from({ length: 2 }, (_v, i) => ({
+      camp: i + 1,
+      client: null,
+      prepared: false,
+      agreeDraw: false
+    }))
     this.mapData = mapData
     this.loadExtensions(extensions)
     this.chessboard = generateChessboard(mapData)
@@ -47,25 +60,25 @@ export class GameServer extends GameData {
   }
 
   sendAll(type: string, data?: unknown): void {
-    for (const ws of this.wss.clients) {
-      this.send(ws, type, data)
-    }
+    this.wss.clients.forEach((ws) => this.send(ws, type, data))
   }
 
   onConnection(ws: WebSocket): void {
-    const idx = this.playerList.findIndex((val) => !val)
-    if (idx === -1) {
+    const player = this.playerList.find((p) => !p.client)
+    if (!player) {
       this.send(ws, 'connect-fail', 'too-many-clients')
       ws.close()
       return
     }
-    this.playerList[idx] = { client: ws, prepared: false }
+    player.client = ws
     ws.on('message', (data) => this.processMsg(ws, data))
     ws.on('close', () => {
-      if (this.playerList[idx]?.prepared) this.close()
-      this.playerList[idx] = null
+      if (player.prepared) this.close()
+      player.client = null
+      player.prepared = false
+      player.agreeDraw = false
     })
-    this.send(ws, 'connect-success', { camp: idx + 1, mapData: this.mapData })
+    this.send(ws, 'connect-success', { camp: player.camp, mapData: this.mapData })
   }
 
   processMsg(ws: WebSocket, rawData: RawData): void {
@@ -77,16 +90,13 @@ export class GameServer extends GameData {
       this.send(ws, 'error', `Invalid data: ${rawData}`)
       return
     }
+    const player = this.playerList.find((p) => p.client === ws) as Player
     switch (data.type) {
       case 'prepared':
-        if (
-          this.playerList.every((val) => {
-            if (val?.client === ws) val.prepared = true
-            return val?.prepared
-          })
-        ) {
+        player.prepared = true
+        if (this.playerList.every((p) => p.prepared)) {
           this.currentTurn = 1
-          this.sendAll('game-start')
+          this.wss.clients.forEach((s) => this.send(s, 'game-start', s !== ws))
         }
         break
       case 'get-state':
@@ -98,22 +108,48 @@ export class GameServer extends GameData {
         )
         break
       case 'move': {
-        if (this.playerList.findIndex((val) => val?.client === ws) + 1 !== this.currentTurn) {
+        if (player.camp !== this.currentTurn) {
           this.send(ws, 'error', 'Not your turn', data.id)
-          break
-        }
-        try {
-          const { from, to } = data.data as { from: Position; to: Position }
-          const res = this.move(from, to)
-          if (res) {
-            this.sendAll('change-turn')
-            this.send(ws, 'success', undefined, data.id)
+        } else if (this.isGameEnd) {
+          this.send(ws, 'error', 'Game has ended', data.id)
+        } else {
+          try {
+            const { from, to } = data.data as { from: Position; to: Position }
+            const res = this.move(from, to)
+            if (res) {
+              this.sendAll('change-turn', data.data)
+              this.send(ws, 'success', undefined, data.id)
+            }
+          } catch {
+            this.send(ws, 'error', 'Invalid move', data.id)
           }
-        } catch {
-          this.send(ws, 'error', 'Invalid move', data.id)
         }
         break
       }
+      case 'surrender':
+        if (this.currentTurn && !this.isGameEnd) this.endGame(3 - player.camp, '认输')
+        break
+      case 'draw':
+        if (this.currentTurn && !this.isGameEnd) {
+          if (data.data) {
+            player.agreeDraw = true
+            if (this.raiseDraw && this.playerList.every((p) => p.agreeDraw)) {
+              this.endGame(0, '和棋')
+            } else {
+              this.raiseDraw = true
+              this.playerList.forEach((p) => {
+                if (p != player && p.client) this.send(p.client, 'draw')
+              })
+            }
+          } else if (this.raiseDraw) {
+            this.raiseDraw = false
+            this.playerList.forEach((p) => {
+              p.agreeDraw = false
+              if (p != player && p.client) this.send(p.client, 'draw-refused')
+            })
+          }
+        }
+        break
       default:
         this.send(ws, 'error', `Invalid type: ${data.type}`, data.id)
     }
@@ -146,7 +182,7 @@ export class GameServer extends GameData {
         if (this.canMove([i, j])) return true
       }
     }
-    this.endGame(this.currentTurn === 1 ? 2 : 1, '无可走棋子')
+    this.endGame(3 - this.currentTurn, '无可走棋子')
     return true
   }
 

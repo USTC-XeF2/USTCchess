@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { EditOutlined, FolderOpenOutlined, ReloadOutlined } from '@ant-design/icons'
+import { FolderOpenOutlined, SelectOutlined, UndoOutlined } from '@ant-design/icons'
 import { blue, cyan, gold, gray, green, orange, purple, red } from '@ant-design/colors'
 import type { ColorPickerProps, DescriptionsProps } from 'antd'
 import {
@@ -13,7 +13,8 @@ import {
   Space,
   Switch,
   Spin,
-  Divider
+  Divider,
+  Tooltip
 } from 'antd'
 
 import { Settings } from 'src/types/settings'
@@ -68,12 +69,15 @@ function SettingPage(): JSX.Element {
   const [form] = Form.useForm<Settings>()
 
   useEffect(() => {
-    window.addEventListener('update-mainwindow', async () => {
+    const update = async (): Promise<void> => {
       const newSettings = await window.electronAPI.getSettings()
       setSettings(newSettings)
       form.setFieldsValue(newSettings)
-    })
+    }
+
+    window.addEventListener('update-mainwindow', update)
     window.dispatchEvent(updateEvent)
+    return (): void => window.removeEventListener('update-mainwindow', update)
   }, [])
 
   const onChangeSettings = async (changedSettings: Partial<Settings>): Promise<void> => {
@@ -129,15 +133,20 @@ function SettingPage(): JSX.Element {
             readOnly
             addonAfter={
               <Space size={2} split={<Divider type="vertical" />}>
-                <EditOutlined
-                  onClick={() =>
-                    window.electronAPI
-                      .chooseExtensionFolder()
-                      .then(() => window.dispatchEvent(updateEvent))
-                  }
-                />
-                <FolderOpenOutlined onClick={window.electronAPI.openExtensionFolder} />
-                <ReloadOutlined onClick={() => onChangeSettings({ 'extensions-save-path': '' })} />
+                <Tooltip title="选择文件夹">
+                  <SelectOutlined
+                    onClick={async () => {
+                      await window.electronAPI.chooseExtensionFolder()
+                      window.dispatchEvent(updateEvent)
+                    }}
+                  />
+                </Tooltip>
+                <Tooltip title="打开文件夹">
+                  <FolderOpenOutlined onClick={window.electronAPI.openExtensionFolder} />
+                </Tooltip>
+                <Tooltip title="重置存储路径">
+                  <UndoOutlined onClick={() => onChangeSettings({ 'extensions-save-path': '' })} />
+                </Tooltip>
               </Space>
             }
           />
