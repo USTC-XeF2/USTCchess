@@ -21,6 +21,11 @@ const api: API = {
   setEnabledExtensions: (enabledExtensions) =>
     ipcRenderer.invoke('set-enabled-extensions', enabledExtensions),
   importExtensions: () => ipcRenderer.invoke('import-extensions'),
+  fetchResourceItems: (type, filter) => ipcRenderer.invoke('fetch-resource-items', type, filter),
+  fetchResourceVersions: (item) => ipcRenderer.invoke('fetch-resource-versions', item),
+  getDownloadPath: (item, version) => ipcRenderer.invoke('get-download-path', item, version),
+  downloadResource: (item, version, path) =>
+    ipcRenderer.invoke('download-resource', item, version, path),
   getSettings: () => ipcRenderer.invoke('get-settings'),
   getSetting: (value) => ipcRenderer.invoke('get-setting', value),
   changeSettings: (changedSettings) => ipcRenderer.invoke('change-settings', changedSettings),

@@ -1,5 +1,16 @@
 # Change Log
 
+## [1.0.0-beta.2] - 2024-12-22
+
+### Added
+
+- Resource module for online downloading.
+
+### Fixed
+
+- Check prompt cannot be displayed properly.
+- Quick online server-side can ignore extension checks.
+
 ## [1.0.0-beta.1] - 2024-12-19
 
 ### Added

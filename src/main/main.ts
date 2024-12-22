@@ -6,6 +6,7 @@ import semver from 'semver'
 
 import type { Map, VersionRanges } from '../types/map'
 import { Extension, ExtensionInfo, ExtNameList } from '../types/extension'
+import { ItemType, ResourceItem, ResourceVersion } from '../types/resource'
 import type { LastLoaded, Settings } from '../types/settings'
 import { isMap } from '../utils/map'
 import { getInfo, isExtension } from '../utils/extension'
@@ -14,6 +15,7 @@ import { defaultSettings } from '../utils/settings'
 const basePath = join(app.getPath('userData'), 'Local Storage')
 const lastLoadedPath = join(basePath, 'last-loaded.json')
 const settingPath = join(basePath, 'settings.json')
+const resourceHost = 'https://ustcchess.xef2.top'
 
 export function createMainWindow(): BrowserWindow {
   const mainWindow = new BrowserWindow({
@@ -200,6 +202,49 @@ export function checkExtensions(
     }
   }
   return true
+}
+
+export async function fetchResourceItems(type: ItemType, filter: string): Promise<ResourceItem[]> {
+  const url = new URL(`${resourceHost}/api/list/${type}`)
+  if (filter) {
+    url.searchParams.append('filter', filter)
+  }
+  const response = await fetch(url.toString())
+  if (!response.ok) {
+    throw new Error(`Failed to fetch items: ${response.statusText}`)
+  }
+
+  const data: ResourceItem[] = await response.json()
+  data.forEach((item) => (item.type = type))
+  return data
+}
+
+export async function fetchResourceVersions(item: ResourceItem): Promise<ResourceVersion[]> {
+  const response = await fetch(`${resourceHost}/api/${item.type}/${item.id}`)
+  if (!response.ok) {
+    throw new Error(`Failed to fetch versions: ${response.statusText}`)
+  }
+
+  const data: ResourceVersion[] = await response.json()
+  return data
+}
+
+export async function downloadResource(
+  item: ResourceItem,
+  version: ResourceVersion,
+  path: string
+): Promise<boolean> {
+  try {
+    const response = await fetch(`${resourceHost}/api/download/${item.type}/${version.id}`)
+    if (!response.ok) {
+      return false
+    }
+    const buffer = await response.arrayBuffer()
+    await fsPromises.writeFile(path, Buffer.from(buffer))
+    return true
+  } catch {
+    return false
+  }
 }
 
 export async function getSettings(): Promise<Settings> {

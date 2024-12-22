@@ -7,6 +7,7 @@ import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { Chess, Position } from '../types/chessboard'
 import { Map } from '../types/map'
 import { Extension } from '../types/extension'
+import { ResourceItem, ResourceVersion } from '../types/resource'
 import { GameData as GameDataInterface } from '../types/game'
 import { getChessInfo } from '../utils/chessboard'
 import { generateChessboard } from '../utils/map'
@@ -24,6 +25,9 @@ import {
   copyExtensions,
   autoGetNeededExtensions,
   checkExtensions,
+  fetchResourceItems,
+  fetchResourceVersions,
+  downloadResource,
   getSettings,
   getSetting,
   changeSettings,
@@ -179,6 +183,23 @@ app.whenReady().then(() => {
     copyExtensions(result.filePaths)
   }
 
+  const getDownloadPath = async (
+    item: ResourceItem,
+    version: ResourceVersion
+  ): Promise<string | null> => {
+    const ext = item.type === 'map' ? 'json' : 'js'
+    let defaultPath = `[${item.name}]${item.id}-${version.version}.${ext}`
+    if (item.type === 'extension') {
+      defaultPath = `${await getSetting('extensions-save-path')}/${defaultPath}`
+    }
+    const res = await dialog.showSaveDialog(mainWindow, {
+      defaultPath,
+      filters: [{ name: `${item.type === 'map' ? 'Map' : 'Javascript'} Files`, extensions: [ext] }]
+    })
+    if (res.canceled) return null
+    return res.filePath
+  }
+
   const reloadExt = (): void => {
     reloadMap()
     mainWindow.webContents.send('update-extensions')
@@ -208,20 +229,19 @@ app.whenReady().then(() => {
     data: { port: string; address: string }
   ): Promise<boolean> => {
     if (isGameRunning) throw '游戏正在运行中'
-    const getMapData = async (): Promise<Map> => {
+    const getMapData = async (checkLoaded: boolean): Promise<Map> => {
       const mapData = gameData.getInterface().mapData
       if (!mapData) throw '未选择地图文件'
-      if ((await getSetting('check-extensions')) && !gameData.isAllExtLoaded)
-        throw '地图所需扩展未启用或版本错误'
+      if (checkLoaded && !gameData.isAllExtLoaded) throw '地图所需扩展未启用或版本错误'
       return mapData
     }
     if (gamemode === 'local-mode') {
-      const mapData = await getMapData()
+      const mapData = await getMapData(await getSetting('check-extensions'))
       const server = new GameServer(mapData, gameData.getExtensions())
       createClients(server.address, 2, restoreMainWindow)
     } else if (gamemode === 'quick-online') {
       if (mode === 'create') {
-        const mapData = await getMapData()
+        const mapData = await getMapData(true)
         const host = await getLocalIPAddress()
         const port = parseInt(data.port) || 0
         const server = new GameServer(mapData, gameData.getExtensions(), host, port)
@@ -259,6 +279,10 @@ app.whenReady().then(() => {
       reloadMap()
     },
     'import-extensions': importExtensions,
+    'fetch-resource-items': fetchResourceItems,
+    'fetch-resource-versions': fetchResourceVersions,
+    'get-download-path': getDownloadPath,
+    'download-resource': downloadResource,
     'get-settings': getSettings,
     'get-setting': getSetting,
     'change-settings': async (s) => {

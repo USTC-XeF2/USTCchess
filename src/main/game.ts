@@ -13,9 +13,9 @@ import { is } from '@electron-toolkit/utils'
 
 import { autoGetNeededExtensions, checkExtensions } from './main'
 
-import { Chessboard, Position } from '../types/chessboard'
+import { Position } from '../types/chessboard'
 import { Map as GameMap } from '../types/map'
-import { Response } from '../types/game'
+import { GameState, Response } from '../types/game'
 import { getInfo } from '../utils/map'
 import { GameData } from '../utils/game'
 
@@ -218,6 +218,7 @@ class GameClient extends GameData {
           this.window.webContents.send('game-start')
           break
         case 'change-turn':
+          await this.contact('get-state')
           this.window.webContents.send('change-turn', {
             lastMove: data.data,
             checkedPos: this.getCheckedPos()
@@ -252,9 +253,7 @@ class GameClient extends GameData {
       case 'get-state': {
         const res = await this.contactToServer(type, data)
         if (res.status === 'success') {
-          if (res.data && typeof res.data === 'object' && 'chessboard' in res.data) {
-            this.chessboard = (res.data as { chessboard: Chessboard }).chessboard
-          }
+          this.chessboard = (res.data as GameState).chessboard
         }
         return res
       }
@@ -264,7 +263,7 @@ class GameClient extends GameData {
         return await this.contactToServer(type, data)
       }
       case 'draw':
-        this.send({ type: 'draw', data })
+        this.send({ type, data })
         return { status: 'success' }
       default:
         return { status: 'error', data: 'Unknown type.' }

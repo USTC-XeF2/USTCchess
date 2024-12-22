@@ -5,12 +5,13 @@ import React, { useState, useEffect } from 'react'
 import ReactDOM from 'react-dom/client'
 
 import {
-  AppstoreOutlined,
   BlockOutlined,
   BorderOutlined,
   CloseOutlined,
+  CloudOutlined,
   HomeOutlined,
   LineOutlined,
+  ProductOutlined,
   SettingOutlined
 } from '@ant-design/icons'
 import type { TabsProps } from 'antd'
@@ -19,6 +20,7 @@ import { Button, Image, Space, Tabs, Typography } from 'antd'
 import AppConfig from './config'
 import StartPage from './components/StartPage'
 import ExtensionPage from './components/ExtensionPage'
+import ResourcePage from './components/ResourcePage'
 import SettingPage from './components/SettingPage'
 
 const tabItems: TabsProps['items'] = [
@@ -31,8 +33,14 @@ const tabItems: TabsProps['items'] = [
   {
     key: 'extension',
     label: '扩展',
-    icon: <AppstoreOutlined />,
+    icon: <ProductOutlined />,
     children: <ExtensionPage />
+  },
+  {
+    key: 'resource',
+    label: '资源',
+    icon: <CloudOutlined />,
+    children: <ResourcePage />
   },
   {
     key: 'setting',

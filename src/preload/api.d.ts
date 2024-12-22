@@ -1,6 +1,7 @@
 import { Chess, Chessboard } from '../types/chessboard'
 import { Map } from '../types/map'
 import { ExtensionInfo, ExtNameList } from '../types/extension'
+import { ItemType, ResourceItem, ResourceVersion } from '../types/resource'
 import { Settings } from '../types/settings'
 import { GameData, Response } from '../types/game'
 
@@ -25,6 +26,10 @@ interface API {
   getEnabledExtensions: () => Promise<ExtNameList>
   setEnabledExtensions: (enabledExtensions: ExtNameList) => Promise<void>
   importExtensions: () => Promise<void>
+  fetchResourceItems: (type: ItemType, filter: string) => Promise<ResourceItem[]>
+  fetchResourceVersions: (item: ResourceItem) => Promise<ResourceVersion[]>
+  getDownloadPath: (item: ResourceItem, version: ResourceVersion) => Promise<string | null>
+  downloadResource: (item: ResourceItem, version: ResourceVersion, path: string) => Promise<boolean>
   getSettings: () => Promise<Settings>
   getSetting: <T extends keyof Settings>(key: T) => Promise<Settings[T]>
   changeSettings: (changedSettings: Partial<Settings>) => Promise<void>

@@ -17,32 +17,16 @@ import {
   Typography
 } from 'antd'
 
-import { Chessboard, Position } from 'src/types/chessboard'
-import { Map } from 'src/types/map'
-import { GamePrompt } from 'src/types/game'
+import { Position } from 'src/types/chessboard'
+import { GameInfo, GameState, GamePrompt, GameResult } from 'src/types/game'
 
 import AppConfig from './config'
 import ChessboardComponent from './components/Chessboard'
 
-interface Info {
-  camp: number
-  mapData: Map
-}
-
-interface GameState {
-  currentTurn: number
-  chessboard: Chessboard
-}
-
-interface GameResult {
-  winner: number
-  info?: string
-}
-
 const getColor = (camp?: number): string => (camp == 1 ? 'red' : camp == 2 ? 'blue' : 'green')
 
 function Game(): JSX.Element {
-  const [info, setInfo] = useState<Info>()
+  const [gameInfo, setGameInfo] = useState<GameInfo>()
   const [gameState, setGameState] = useState<GameState>()
   const [gamePrompt, setGamePrompt] = useState<GamePrompt>()
   const [gameResult, setGameResult] = useState<GameResult>()
@@ -50,9 +34,9 @@ function Game(): JSX.Element {
   const [messageApi, messageHolder] = message.useMessage()
   const [showGameResult, setShowGameResult] = useState(false)
 
-  const getInfo = (): Promise<void> =>
+  const getGameInfo = (): Promise<void> =>
     window.electronAPI.contact('get-info').then((res) => {
-      if (res.status === 'success') setInfo(res.data as Info)
+      if (res.status === 'success') setGameInfo(res.data as GameInfo)
     })
   const getGameState = (): Promise<void> =>
     window.electronAPI.contact('get-state').then((res) => {
@@ -65,11 +49,11 @@ function Game(): JSX.Element {
   }
 
   useEffect(() => {
-    getInfo()
+    getGameInfo()
     getGameState()
 
     window.electronAPI.on('connect-success', () => {
-      getInfo()
+      getGameInfo()
       getGameState()
     })
     window.electronAPI.on('game-start', getGameState)
@@ -110,13 +94,15 @@ function Game(): JSX.Element {
       window.electronAPI.off('connect-success')
       window.electronAPI.off('game-start')
       window.electronAPI.off('change-turn')
+      window.electronAPI.off('draw')
+      window.electronAPI.off('draw-refused')
       window.electronAPI.off('game-end')
     }
   }, [])
 
-  if (!info) return <Spin tip="连接服务器中..." fullscreen delay={100} />
+  if (!gameInfo) return <Spin tip="连接服务器中..." fullscreen delay={100} />
 
-  const { camp, mapData } = info
+  const { camp, mapData } = gameInfo
   const getAvailableMoves = async (pos: Position): Promise<Position[]> =>
     (await window.electronAPI.contact('get-available-moves', pos)).data as Position[]
   const canMove = async (pos: Position): Promise<boolean> => {

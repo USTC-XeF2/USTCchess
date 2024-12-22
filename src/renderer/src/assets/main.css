@@ -1,6 +1,6 @@
 @import './base.css';
 
-.ant-tabs-nav {
+#root > div > .ant-tabs-nav {
     -webkit-app-region: drag;
 }
 
